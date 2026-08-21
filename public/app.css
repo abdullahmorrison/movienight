@@ -252,6 +252,32 @@ header.top h1 small {
 }
 .result.disabled { opacity: .5; cursor: default; }
 
+/* ---------- sign-in prompt ---------- */
+
+.modal[hidden] { display: none; }
+.modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(0, 0, 0, .74); backdrop-filter: blur(5px);
+  animation: modal-fade .15s ease;
+}
+.modal .sheet {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 30px 28px; max-width: 400px; width: 100%; text-align: center;
+  box-shadow: var(--shadow); animation: modal-rise .2s cubic-bezier(.2, .7, .3, 1);
+}
+.modal .glyph { font-size: 30px; line-height: 1; margin-bottom: 12px; }
+.modal h3 { margin: 0 0 8px; font-size: 21px; font-weight: 800; letter-spacing: -.02em; }
+.modal p { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+.modal .btn { width: 100%; padding: 13px; font-size: 15px; }
+.modal .dismiss {
+  margin-top: 12px; background: none; border: 0; color: var(--muted);
+  font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
+}
+.modal .dismiss:hover { color: var(--text); }
+@keyframes modal-fade { from { opacity: 0; } }
+@keyframes modal-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+
 /* ---------- panels ---------- */
 
 .card {
