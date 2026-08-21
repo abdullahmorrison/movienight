@@ -145,6 +145,40 @@ function hero(m, kicker, facts, cta) {
   </section>`;
 }
 
+/* ---------- wanting a movie ---------- */
+
+const wantInFlight = new Set();
+
+/**
+ * Flips the button before the server answers. The count and the label are the
+ * whole feedback here, so waiting two round trips to show them reads as broken.
+ */
+async function toggleWant(id) {
+  if (!allowed('This marks what you want put up for vote — the vote itself happens live on stream.')) return;
+  if (wantInFlight.has(id)) return;
+  wantInFlight.add(id);
+
+  const nom = state.nominations.find((n) => n.id === id);
+  const had = state.myInterest.includes(id);
+  state.myInterest = had ? state.myInterest.filter((x) => x !== id) : [...state.myInterest, id];
+  // Only the count moves, not the position: reordering under the cursor mid-click
+  // is worse than waiting for the server's ordering a moment later.
+  if (nom) nom.interest = Math.max(0, nom.interest + (had ? -1 : 1));
+  render();
+
+  let failure = null;
+  try {
+    await post(`/api/interest/${id}`);
+  } catch (e) {
+    failure = e;
+  }
+  wantInFlight.delete(id);
+  // Re-read first: the server owns the ordering, and a toast written before
+  // this would be wiped by the render it triggers.
+  await refresh();
+  if (failure) toast(failure.message, true);
+}
+
 /* ---------- movie details ---------- */
 
 let detailId = null;
@@ -206,19 +240,14 @@ function openDetail(id) {
   $('#detail-close').onclick = closeDetail;
 
   const want = $('[data-detail-want]');
-  if (want) want.onclick = async () => {
-    if (!allowed('This marks what you want put up for vote — the vote itself happens live on stream.')) return;
-    try { await post(`/api/interest/${id}`); await refresh(); openDetail(id); }
-    catch (e) { toast(e.message, true); }
-  };
+  if (want) want.onclick = () => toggleWant(id);
 
   const vote = $('[data-detail-vote]');
   if (vote) vote.onclick = () => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
     picks.has(id) ? picks.delete(id) : picks.add(id);
     dirty = true;
-    render();
-    openDetail(id);
+    render(); // redraws this dialog too
   };
 }
 
@@ -515,11 +544,9 @@ function render() {
   wireSearch();
 
   $$('[data-interest]').forEach((b) => {
-    b.onclick = async (e) => {
+    b.onclick = (e) => {
       e.stopPropagation();
-      if (!allowed('This marks what you want put up for vote — the vote itself happens live on stream.')) return;
-      try { await post(`/api/interest/${b.dataset.interest}`); await refresh(); }
-      catch (err) { toast(err.message, true); }
+      toggleWant(Number(b.dataset.interest));
     };
   });
 
@@ -549,15 +576,22 @@ function render() {
     el.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(el); } };
   });
 
+  if (detailId !== null) openDetail(detailId);
+
   const submit = $('#submit');
   if (submit) submit.onclick = async () => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
+    submit.disabled = true;
+    submit.textContent = 'Saving…';
     try {
       await post('/api/vote', { nominationIds: [...picks] });
       dirty = false;
       await refresh();
       toast('Vote saved — change it any time before the timer runs out.');
-    } catch (e) { toast(e.message, true); }
+    } catch (e) {
+      toast(e.message, true);
+      render();
+    }
   };
 }
 
@@ -575,8 +609,6 @@ function apply(next) {
     const q = $('#q');
     if (q) { q.value = term; q.focus(); }
   }
-
-  if (detailId !== null) openDetail(detailId);
 }
 
 function connect() {
