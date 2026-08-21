@@ -7,12 +7,17 @@
  */
 import crypto from 'node:crypto';
 import { config } from '../src/config.js';
-import * as q from '../src/db/queries.js';
+import { resolveChannelId } from '../src/twitch.js';
 
 if (process.env.NODE_ENV === 'production') {
   console.error('Refusing to mint a fake session in production.');
   process.exit(1);
 }
+
+// Sessions are keyed on the channel, so resolve it before touching the database
+// — same ordering the server uses at boot.
+await resolveChannelId();
+const q = await import('../src/db/queries.js');
 
 const [userId, login] = process.argv.slice(2);
 if (!userId || !login) {

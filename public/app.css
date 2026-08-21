@@ -14,6 +14,7 @@
   /* Urgency is never brand-coloured — it has to read as a warning at a glance. */
   --warn: #ff453a;
   --shadow: 0 8px 28px rgba(0, 0, 0, .75);
+  --content: 1440px;
 }
 
 :root[data-accent="red"] {
@@ -33,7 +34,11 @@ body {
   min-height: 100vh;
 }
 
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 0 80px; }
+.wrap { width: 100%; padding: 0 0 80px; }
+/* Sections centre themselves so the hero can run edge to edge between them. */
+.pad, .grid, header.top .top-inner, .hero .inner {
+  max-width: var(--content); margin-inline: auto;
+}
 .pad { padding: 0 clamp(16px, 4vw, 44px); }
 
 /* ---------- top bar ---------- */
@@ -45,7 +50,6 @@ header.top {
   background: linear-gradient(180deg, rgba(0,0,0,.92) 8%, rgba(0,0,0,0));
 }
 header.top .top-inner {
-  max-width: 1180px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
   gap: 14px; flex-wrap: wrap;
 }
@@ -94,21 +98,25 @@ header.top h1 small {
 
 /* ---------- hero ---------- */
 
+/* Full-bleed: the backdrop spans the viewport, the copy stays in the column. */
 .hero {
-  position: relative; min-height: min(58vw, 460px);
+  position: relative; width: 100%; min-height: min(56vw, 520px);
   display: flex; align-items: flex-end;
-  padding: 0 clamp(16px, 4vw, 44px) 42px;
   margin-bottom: 6px; overflow: hidden;
+}
+.hero .inner {
+  position: relative; z-index: 1; width: 100%;
+  padding: 0 clamp(16px, 4vw, 44px) 46px;
 }
 .hero .art { position: absolute; inset: 0; z-index: 0; }
 .hero .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hero .art::after {
   content: ''; position: absolute; inset: 0;
   background:
-    linear-gradient(90deg, rgba(20,20,20,.96) 0%, rgba(20,20,20,.72) 42%, rgba(20,20,20,.1) 78%),
-    linear-gradient(0deg, var(--bg) 2%, rgba(20,20,20,0) 44%);
+    linear-gradient(90deg, rgba(20,20,20,.97) 0%, rgba(20,20,20,.7) 40%, rgba(20,20,20,.08) 72%, rgba(20,20,20,0) 100%),
+    linear-gradient(0deg, var(--bg) 1%, rgba(20,20,20,.15) 38%, rgba(20,20,20,0) 62%);
 }
-.hero .body { position: relative; z-index: 1; max-width: 620px; }
+.hero .body { max-width: 640px; }
 .hero .k {
   font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
   color: var(--accent); font-weight: 800; margin-bottom: 10px;
@@ -149,7 +157,7 @@ header.top h1 small {
 .strip > * { scroll-snap-align: start; }
 .grid {
   display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   padding: 22px clamp(16px, 4vw, 44px) 26px;
 }
 
