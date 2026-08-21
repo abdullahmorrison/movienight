@@ -53,17 +53,18 @@
     text-align: center; padding: 10px; font-weight: 700; font-size: 14px; color: #808080;
     background: linear-gradient(160deg, #262626, #161616);
   }
+  /* The command to type, shown as the command itself. */
   .num {
     position: absolute; top: 6px; left: 6px;
-    background: rgba(0,0,0,.75); border-radius: 3px; padding: 2px 9px;
-    font-weight: 800; font-size: 14px;
+    background: rgba(0,0,0,.82); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 3px; padding: 2px 8px; font-weight: 700; font-size: 13px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
   }
-  .n {
-    position: absolute; top: 6px; right: 6px;
-    background: rgba(0,0,0,.75); border-radius: 3px; padding: 2px 9px;
-    font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums;
-  }
-  .art.lead .n { background: var(--accent); }
+  .art.lead .num { background: var(--accent); border-color: transparent; }
+  /* Counts carry their noun so they never read as bare numbers. */
+  .count { margin-top: 5px; font-size: 13px; color: #b3b3b3; }
+  .count b { color: #fff; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .art.lead ~ .count b { color: var(--accent); }
   .bar { height: 5px; background: rgba(255,255,255,.14); margin-top: 6px; overflow: hidden; border-radius: 2px; }
   .bar i { display: block; height: 100%; background: #6d6d6e; transition: width .55s cubic-bezier(.4,0,.2,1); }
   .art.lead ~ .bar i { background: var(--accent); }
@@ -101,17 +102,21 @@ const art = (m, size) => m.poster
   ? `<img src="${esc(state.posterBase)}/${size}${esc(m.poster)}" alt="">`
   : `<div class="noposter">${esc(m.title)}</div>`;
 
-function tiles(items, value, leadValue) {
-  return items.map((m, i) => `
+function tiles(items, value, leadValue, noun) {
+  return items.map((m, i) => {
+    const n = value(m);
+    const label = m.position ? `!vote ${m.position}` : `${i + 1}`;
+    return `
     <div class="item">
-      <div class="art ${value(m) === leadValue && leadValue > 0 ? 'lead' : ''}">
-        <span class="num">${m.position ?? i + 1}</span>
-        <span class="n">${value(m)}</span>
+      <div class="art ${n === leadValue && leadValue > 0 ? 'lead' : ''}">
+        <span class="num">${label}</span>
         ${art(m, 'w342')}
       </div>
-      <div class="bar"><i style="width:${(value(m) / Math.max(1, leadValue)) * 100}%"></i></div>
+      <div class="bar"><i style="width:${(n / Math.max(1, leadValue)) * 100}%"></i></div>
+      <div class="count"><b>${n}</b> ${n === 1 ? noun[0] : noun[1]}</div>
       <div class="cap">${esc(m.title)} <span>${m.year ?? ''}</span></div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function render() {
@@ -126,8 +131,9 @@ function render() {
         <h1>Voting open<span class="cmd">Type <code>!vote 1 3</code> in chat</span></h1>
         <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
       </div>
-      <div class="row">${tiles(state.options, (o) => o.approvals, max)}</div>
-      <div class="foot">${state.voters} voted · pick every movie you'd watch</div>`;
+      <div class="row">${tiles(state.options, (o) => o.approvals, max, ['vote', 'votes'])}</div>
+      <div class="foot">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted ·
+        vote for every movie you'd watch, not just one</div>`;
     return;
   }
 
@@ -139,7 +145,8 @@ function render() {
         <div>
           <div class="k">Tonight's movie</div>
           <h2>${esc(w.title)}</h2>
-          <div class="sub">${w.year ? w.year + ' · ' : ''}${w.approvals} approvals from ${state.voters} voters</div>
+          <div class="sub">${w.year ? w.year + ' · ' : ''}won with ${w.approvals} of
+            ${state.voters} ${state.voters === 1 ? 'vote' : 'votes'}</div>
         </div>
       </div>`;
     return;
@@ -152,8 +159,8 @@ function render() {
       <h1>Nominations open<span class="cmd">Type <code>!nominate &lt;title&gt;</code> in chat</span></h1>
     </div>
     ${top.length
-      ? `<div class="row">${tiles(top, (n) => n.interest, max)}</div>
-         <div class="foot">Top ${state.rules.shortlistSize} make the ballot</div>`
+      ? `<div class="row">${tiles(top, (n) => n.interest, max, ['person wants it', 'people want it'])}</div>
+         <div class="foot">The ${state.rules.shortlistSize} most wanted go on the ballot</div>`
       : `<div class="idle">No nominations yet — type <code>!nominate &lt;movie title&gt;</code></div>`}`;
 }
 

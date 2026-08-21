@@ -143,15 +143,14 @@ function nomTile(n, i) {
   return `
     <div class="tile ${mine ? 'mine' : ''}">
       <div class="poster">
-        <span class="rank" title="Rank ${i + 1} of ${state.nominations.length} by interest">${i + 1}</span>
-        <span class="badge ${shortlisted ? 'top' : ''}"
-              title="${n.interest} interested${shortlisted ? ' · on the ballot' : ''}">♥ ${n.interest}</span>
+        ${shortlisted ? '<span class="flag">On the ballot</span>' : ''}
         ${posterEl(n)}
         <div class="meta">
           <b>${esc(n.title)}</b>
-          <small>${n.year ? n.year + ' · ' : ''}${esc(n.nominator)}</small>
+          <small>${n.year ? n.year + ' · ' : ''}nominated by ${esc(n.nominator)}</small>
         </div>
       </div>
+      <div class="stat"><b>${n.interest}</b> ${n.interest === 1 ? 'person wants' : 'people want'} this</div>
       <div class="tools">
         <button class="btn ${mine ? 'grey' : ''}" data-interest="${n.id}">
           ${mine ? '✓ Interested' : '+ Interest'}
@@ -168,13 +167,13 @@ function ballotTile(o) {
     <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
          role="checkbox" tabindex="0" aria-checked="${on}">
       <div class="poster">
-        <span class="rank" title="Vote for this in chat with !vote ${o.position}">${o.position}</span>
+        <span class="cmd-pill">!vote ${o.position}</span>
         <span class="check">✓</span>
-        ${on ? '' : `<span class="badge" title="${o.approvals} approvals so far">${o.approvals}</span>`}
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
       <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
+      <div class="stat"><b>${o.approvals}</b> ${o.approvals === 1 ? 'vote' : 'votes'}</div>
       ${o.trailer ? `<div class="tools">${trailerBtn(o)}</div>` : ''}
     </div>`;
 }
@@ -208,7 +207,7 @@ function nominateSection() {
       ${searchBox()}
       <div class="row-head">
         <h3>On the board</h3>
-        <span class="note">♥ = people interested · top ${state.rules.shortlistSize} make the ballot — this is not the vote</span>
+        <span class="note">The ${state.rules.shortlistSize} most wanted go on the ballot — this is not the vote yet</span>
       </div>
     </div>
     ${board}`;
@@ -217,7 +216,7 @@ function nominateSection() {
 function renderNominating() {
   const lead = state.nominations[0];
   const head = lead
-    ? hero(lead, 'Leading the board', `<b>${lead.interest}</b> interested · nominated by ${esc(lead.nominator)}`,
+    ? hero(lead, 'Leading the board', `<b>${lead.interest}</b> ${lead.interest === 1 ? 'person wants' : 'people want'} this · nominated by ${esc(lead.nominator)}`,
         `${trailerBtn(lead, 'btn')}
          <button class="btn grey" data-interest="${lead.id}">
            ${state.myInterest.includes(lead.id) ? '✓ Interested' : '+ Interest'}</button>`)
@@ -230,7 +229,7 @@ function renderVoting() {
   const lead = [...state.options].sort((a, b) => b.approvals - a.approvals)[0];
   const head = lead
     ? hero(lead, 'Voting open now',
-        `<span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span> left · <b>${state.voters}</b> voted`,
+        `<span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span> left to vote · <b>${state.voters}</b> ${state.voters === 1 ? 'person has' : 'people have'} voted`,
         trailerBtn(lead, 'btn'))
     : '';
 
@@ -238,7 +237,7 @@ function renderVoting() {
     <div class="pad">
       <div class="row-head">
         <h3>Pick everything you'd watch</h3>
-        <span class="note">Corner number = what to type in chat · badge = approvals so far</span>
+        <span class="note">Click a poster, or type its command in chat</span>
       </div>
     </div>
     <div class="grid">${state.options.map(ballotTile).join('')}</div>
@@ -259,19 +258,20 @@ function renderResults() {
   const max = Math.max(1, ...state.options.map((x) => x.approvals));
   const head = w
     ? hero(w, '🏆 Tonight’s movie',
-        `<b>${w.approvals}</b> approvals from <b>${state.voters}</b> voters${w.year ? ` · ${w.year}` : ''}`,
+        `Won with <b>${w.approvals}</b> of <b>${state.voters}</b> ${state.voters === 1 ? 'vote' : 'votes'}${w.year ? ` · ${w.year}` : ''}`,
         trailerBtn(w, 'btn'))
     : `<div class="empty">Poll closed with no votes cast.</div>`;
 
   const finals = `<div class="grid">${state.options.map((o) => `
     <div class="tile">
       <div class="poster">
-        <span class="badge ${o.nominationId === w?.nominationId ? 'top' : ''}"
-              title="${o.approvals} approvals">${o.approvals}</span>
+        ${o.nominationId === w?.nominationId ? '<span class="flag">Winner</span>' : ''}
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
       <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
+      <div class="stat ${o.nominationId === w?.nominationId ? 'win' : ''}">
+        <b>${o.approvals}</b> ${o.approvals === 1 ? 'vote' : 'votes'}</div>
     </div>`).join('')}</div>`;
 
   return `${head}

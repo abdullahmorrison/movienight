@@ -89,7 +89,7 @@ function render() {
       ${thumb(n)}
       <div class="t">
         <b>${i < state.rules.shortlistSize ? '★ ' : ''}${esc(n.title)}</b>
-        <small>${n.year ? n.year + ' · ' : ''}${n.interest} interest · by ${esc(n.nominator)}</small>
+        <small>${n.year ? n.year + ' · ' : ''}${n.interest} ${n.interest === 1 ? 'person wants' : 'people want'} this · by ${esc(n.nominator)}</small>
         ${n.trailer ? `<a href="https://www.youtube.com/watch?v=${esc(n.trailer)}"
            target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
       </div>
@@ -101,7 +101,7 @@ function render() {
       ${voting ? `
         <div class="eyebrow"><span class="dot live"></span> Voting open ·
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
-        <p class="lede">${state.voters} voted so far.</p>
+        <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.</p>
         <button class="btn red big" id="close">End poll now</button>
       ` : `
         <div class="eyebrow"><span class="dot"></span>
@@ -123,7 +123,7 @@ function render() {
         <div>
           <div class="eyebrow" style="margin-bottom:2px">Winner</div>
           <h2>${esc(state.winner.title)}</h2>
-          <p class="muted">${state.winner.approvals} approvals · ${state.voters} voters</p>
+          <p class="muted">Won with ${state.winner.approvals} of ${state.voters} ${state.voters === 1 ? 'vote' : 'votes'}</p>
         </div>
       </div>` : ''}
 
