@@ -135,6 +135,32 @@ function hero(m, kicker, facts, cta) {
   </section>`;
 }
 
+/* ---------- how it works ---------- */
+
+function steps() {
+  const voting = state.phase === 'voting';
+  return `
+    <div class="steps">
+      <div class="step ${voting ? 'done' : 'on'}">
+        <span class="n">1</span>
+        <span class="txt">
+          <b>Nominate what you want${voting ? '' : '<span class="now">You are here</span>'}</b>
+          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the ballot.
+            <strong>This part is not the vote.</strong></small>
+        </span>
+      </div>
+      <div class="step ${voting ? 'on' : ''}">
+        <span class="n">2</span>
+        <span class="txt">
+          <b>Vote live on stream${voting ? '<span class="now">You are here</span>' : ''}</b>
+          <small>${voting
+            ? 'Voting is open right now — pick every movie you would happily watch.'
+            : `${esc(state.channel ?? 'The streamer')} opens a timed poll on stream. That is the real vote.`}</small>
+        </span>
+      </div>
+    </div>`;
+}
+
 /* ---------- tiles ---------- */
 
 function nomTile(n, i) {
@@ -153,7 +179,7 @@ function nomTile(n, i) {
       <div class="stat"><b>${n.interest}</b> ${n.interest === 1 ? 'person wants' : 'people want'} this</div>
       <div class="tools">
         <button class="btn ${mine ? 'grey' : ''}" data-interest="${n.id}">
-          ${mine ? '✓ Interested' : '+ Interest'}
+          ${mine ? '✓ Want it' : '+ Want it'}
         </button>
         ${trailerBtn(n)}
       </div>
@@ -193,13 +219,14 @@ function searchBox() {
     <div class="toast" id="toast"></div>`;
 }
 
-function nominateSection() {
+function nominateSection(withSteps = false) {
   const board = state.nominations.length
     ? `<div class="grid">${state.nominations.map(nomTile).join('')}</div>`
     : `<div class="empty">Nothing nominated yet. Be first.</div>`;
 
   return `
     <div class="pad">
+      ${withSteps ? steps() : ''}
       <div class="row-head">
         <h3>Nominate a movie</h3>
         <span class="note">Max ${state.rules.nominationsPerUser} live nominations each</span>
@@ -207,7 +234,7 @@ function nominateSection() {
       ${searchBox()}
       <div class="row-head">
         <h3>On the board</h3>
-        <span class="note">The ${state.rules.shortlistSize} most wanted go on the ballot — this is not the vote yet</span>
+        <span class="note">Sorted by how many people want it</span>
       </div>
     </div>
     ${board}`;
@@ -219,9 +246,9 @@ function renderNominating() {
     ? hero(lead, 'Leading the board', `<b>${lead.interest}</b> ${lead.interest === 1 ? 'person wants' : 'people want'} this · nominated by ${esc(lead.nominator)}`,
         `${trailerBtn(lead, 'btn')}
          <button class="btn grey" data-interest="${lead.id}">
-           ${state.myInterest.includes(lead.id) ? '✓ Interested' : '+ Interest'}</button>`)
+           ${state.myInterest.includes(lead.id) ? '✓ Want it' : '+ Want it'}</button>`)
     : '';
-  return head + nominateSection();
+  return head + nominateSection(true);
 }
 
 function renderVoting() {
@@ -235,6 +262,7 @@ function renderVoting() {
 
   return `${head}
     <div class="pad">
+      ${steps()}
       <div class="row-head">
         <h3>Pick everything you'd watch</h3>
         <span class="note">Click a poster, or type its command in chat</span>
@@ -277,7 +305,7 @@ function renderResults() {
   return `${head}
     <div class="pad"><div class="row-head"><h3>Final tally</h3></div></div>
     ${finals}
-    ${nominateSection()}`;
+    ${nominateSection(true)}`;
 }
 
 /* ---------- search ---------- */
@@ -391,7 +419,7 @@ function render() {
   $$('[data-interest]').forEach((b) => {
     b.onclick = async (e) => {
       e.stopPropagation();
-      if (!allowed('Adding interest tells the streamer what chat wants to watch.')) return;
+      if (!allowed('This marks what you want on the ballot — the vote itself happens live on stream.')) return;
       try { await post(`/api/interest/${b.dataset.interest}`); await refresh(); }
       catch (err) { toast(err.message, true); }
     };
