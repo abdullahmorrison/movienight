@@ -8,9 +8,17 @@
   --text: #fff;
   --muted: #b3b3b3;
   --dim: #808080;
-  --red: #e50914;
-  --red-hot: #f6121d;
+  /* Twitch purple by default; ?accent=red swaps in the streaming-service red. */
+  --accent: #9146ff;
+  --accent-hot: #a970ff;
+  /* Urgency is never brand-coloured — it has to read as a warning at a glance. */
+  --warn: #ff453a;
   --shadow: 0 8px 28px rgba(0, 0, 0, .75);
+}
+
+:root[data-accent="red"] {
+  --accent: #e50914;
+  --accent-hot: #f6121d;
 }
 
 * { box-sizing: border-box; }
@@ -44,7 +52,7 @@ header.top .top-inner {
 header.top h1 {
   font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.02em;
   display: flex; align-items: baseline; gap: 10px;
-  color: var(--red); text-transform: uppercase;
+  color: var(--accent); text-transform: uppercase;
 }
 header.top h1 small {
   font-size: 11px; font-weight: 700; color: var(--muted);
@@ -66,8 +74,8 @@ header.top h1 small {
 }
 .btn:hover { background: rgba(255,255,255,.78); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
-.btn.red { background: var(--red); color: #fff; }
-.btn.red:hover { background: var(--red-hot); }
+.btn.cta { background: var(--accent); color: #fff; }
+.btn.cta:hover { background: var(--accent-hot); }
 .btn.grey { background: rgba(109,109,110,.7); color: #fff; }
 .btn.grey:hover { background: rgba(109,109,110,.45); }
 .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
@@ -95,7 +103,7 @@ header.top h1 small {
 .hero .body { position: relative; z-index: 1; max-width: 620px; }
 .hero .k {
   font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--red); font-weight: 800; margin-bottom: 10px;
+  color: var(--accent); font-weight: 800; margin-bottom: 10px;
 }
 .hero h2 {
   font-size: clamp(30px, 6.4vw, 58px); margin: 0 0 12px;
@@ -169,20 +177,20 @@ header.top h1 small {
   background: rgba(0,0,0,.72); border-radius: 3px; padding: 2px 9px;
   font-weight: 800; font-size: 12.5px; font-variant-numeric: tabular-nums;
 }
-.badge.top { background: var(--red); }
+.badge.top { background: var(--accent); }
 .tile.mine { outline: 1px solid rgba(255,255,255,.45); outline-offset: -1px; }
 
 /* selectable ballot tiles */
 .tile.pick { cursor: pointer; }
-.tile.picked { outline: 3px solid var(--red); outline-offset: -1px; }
+.tile.picked { outline: 3px solid var(--accent); outline-offset: -1px; }
 .tile.picked .check { display: flex; }
 .check {
   display: none; position: absolute; top: 7px; right: 7px; z-index: 3;
-  width: 25px; height: 25px; border-radius: 50%; background: var(--red); color: #fff;
+  width: 25px; height: 25px; border-radius: 50%; background: var(--accent); color: #fff;
   align-items: center; justify-content: center; font-weight: 900; font-size: 14px;
 }
 .tile .tally { height: 4px; background: rgba(255,255,255,.14); border-radius: 0 0 4px 4px; overflow: hidden; }
-.tile .tally i { display: block; height: 100%; background: var(--red); transition: width .45s ease; }
+.tile .tally i { display: block; height: 100%; background: var(--accent); transition: width .45s ease; }
 
 .tools { display: flex; gap: 6px; padding: 8px 0 0; }
 .tools .btn { flex: 1; padding: 7px 6px; font-size: 12px; border-radius: 3px; }
@@ -240,13 +248,13 @@ header.top h1 small {
   color: var(--muted); font-weight: 800; margin-bottom: 10px;
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.dot.live { background: var(--red); animation: pulse 1.5s infinite; }
+.dot.live { background: var(--warn); animation: pulse 1.5s infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
 
 .toast { min-height: 20px; font-size: 13.5px; color: #6ee7a0; margin-top: 10px; }
 .toast.err { color: #ff5f6d; }
 .timer { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--text); }
-.timer.urgent { color: var(--red); }
+.timer.urgent { color: var(--warn); }
 .empty { text-align: center; padding: 40px 16px; color: var(--dim); }
 code {
   background: rgba(255,255,255,.1); padding: 2px 6px; border-radius: 3px;

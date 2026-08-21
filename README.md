@@ -69,6 +69,16 @@ Set `BOT_ENABLED=false` to run the site without chat.
 
 `/overlay?solid=1` gives it a background for previewing outside OBS.
 
+### Accent colour
+
+Twitch purple by default. Append `?accent=red` to any page for the
+streaming-service red, `?accent=purple` to go back — the choice sticks per
+browser. To change the default, edit `--accent` in `public/app.css` and the
+matching `:root` block in `public/overlay.html`.
+
+Urgency colours (the countdown under 30s, the live dot) deliberately stay red
+whatever the accent is.
+
 ## Chat commands
 
 | Command | Who |
