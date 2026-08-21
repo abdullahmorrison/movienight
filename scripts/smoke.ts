@@ -172,5 +172,56 @@ check('poll survives a restart', q.getOpenPoll(CH)?.id, p2.id);
 check('votes survive a restart', q.voterCount(CH, p2.id), 1);
 poll.close(CH);
 
+console.log('\n— tie ordering —');
+
+const tick = () => new Promise((r) => setTimeout(r, 3));
+const order = () => q.listNominations(CH).map((n) => n.title);
+
+const u = { a: '10', b: '11', c: '12', d: '13' };
+for (const [name, id] of Object.entries(u)) q.upsertUser(id, `tie_${name}`, `tie_${name}`);
+
+// Each nomination starts at 1 (the nominator's own interest).
+q.nominate(CH, movie('Alien', 348, 1979), u.a);
+await tick();
+q.nominate(CH, movie('Solaris', 593, 1972), u.b);
+
+const alienFirst = order().indexOf('Alien') < order().indexOf('Solaris');
+check('equal counts keep the order they arrived in', alienFirst, true);
+
+// Solaris pulls ahead on count.
+const solarisId = q.listNominations(CH).find((n) => n.title === 'Solaris')!.id;
+await tick();
+q.addInterest(CH, solarisId, u.c);
+check('a higher count does overtake', order().indexOf('Solaris') < order().indexOf('Alien'), true);
+
+// Alien draws level. Solaris got to 2 first, so Alien must not pass it.
+const alienId = q.listNominations(CH).find((n) => n.title === 'Alien')!.id;
+await tick();
+q.addInterest(CH, alienId, u.d);
+const tied = q.listNominations(CH).filter((n) => n.title === 'Alien' || n.title === 'Solaris');
+check('drawing level does not overtake', tied.map((n) => [n.title, n.interest]), [
+  ['Solaris', 2],
+  ['Alien', 2],
+]);
+
+// And going one better still does.
+await tick();
+q.addInterest(CH, alienId, u.c);
+check('going one better overtakes', order().indexOf('Alien') < order().indexOf('Solaris'), true);
+
+console.log('\n— resubmitting a ballot —');
+const p3 = poll.open(CH, 120);
+const opts = q.pollOptions(CH, p3.id);
+q.castBallot(CH, p3.id, u.a, [opts[0]!.nomination_id], 'web');
+await tick();
+q.castBallot(CH, p3.id, u.b, [opts[1]!.nomination_id], 'web');
+const leader = q.tally(CH, p3.id)[0]!.nomination_id;
+
+// Re-sending an unchanged pick must not restamp it and reshuffle the bars.
+await tick();
+q.castBallot(CH, p3.id, u.a, [opts[0]!.nomination_id], 'web');
+check('resubmitting an unchanged vote keeps the order', q.tally(CH, p3.id)[0]!.nomination_id, leader);
+poll.close(CH);
+
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

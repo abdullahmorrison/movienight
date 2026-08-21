@@ -182,11 +182,10 @@ function openDetail(id) {
                  target="_blank" rel="noopener noreferrer">▶ Trailer</a>`
             : ''}
           ${voting
-            ? `<button class="icon-btn ${onBallot ? 'on' : ''}" data-detail-vote="${id}"
-                 title="${onBallot ? 'Remove from your vote' : `Vote for this (!vote ${m.position})`}"
-                 aria-label="${onBallot ? 'Remove from your vote' : 'Vote for this'}">${onBallot ? '✓' : '+'}</button>`
-            : `<button class="icon-btn ${mine ? 'on' : ''}" data-detail-want="${id}"
-                 title="${wantLabel}" aria-label="${wantLabel}">${mine ? '✓' : '+'}</button>`}
+            ? `<button class="btn ${onBallot ? 'cta' : 'grey'}" data-detail-vote="${id}">
+                 ${onBallot ? '✓ You voted for this' : '+ Vote for this'}</button>`
+            : `<button class="btn ${mine ? 'cta' : 'grey'}" data-detail-want="${id}">
+                 ${mine ? '✓ Want it' : '+ Want it'}</button>`}
         </div>
       </div>
     </div>

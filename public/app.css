@@ -394,17 +394,6 @@ code {
 }
 .detail-art .cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-/* Netflix-style round secondary controls next to a solid primary. */
-.icon-btn {
-  width: 42px; height: 42px; border-radius: 50%; flex: none; cursor: pointer;
-  border: 2px solid rgba(255,255,255,.5); background: rgba(42,42,42,.6);
-  color: #fff; font-size: 19px; font-weight: 700; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  transition: border-color .12s, background .12s;
-}
-.icon-btn:hover { border-color: #fff; background: rgba(60,60,60,.8); }
-.icon-btn.on { background: var(--accent); border-color: var(--accent); }
-
 .detail-close {
   position: absolute; top: 16px; right: 16px; z-index: 3;
   width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;

@@ -4,6 +4,7 @@ import { config } from '../config.js';
 export type Nomination = {
   id: number;
   title: string;
+  reached_at: number;
   nominated_by: string;
   nominator_login: string;
   created_at: number;
@@ -20,6 +21,7 @@ export type Tally = {
   nomination_id: number;
   title: string;
   approvals: number;
+  reached_at: number;
   year: number | null;
   poster_path: string | null;
   backdrop_path: string | null;
@@ -159,13 +161,16 @@ export function listNominations(channelId: string, limit?: number): Nomination[]
     .prepare(
       `SELECT n.id, n.title, n.nominated_by, u.login AS nominator_login, n.created_at,
               n.tmdb_id, n.year, n.poster_path, n.backdrop_path, n.trailer_key, n.overview,
-              COUNT(i.user_id) AS interest
+              COUNT(i.user_id) AS interest,
+              COALESCE(MAX(i.created_at), n.created_at) AS reached_at
        FROM nominations n
        JOIN users u ON u.id = n.nominated_by
        LEFT JOIN interest i ON i.nomination_id = n.id
        WHERE n.channel_id = ? AND n.won_at IS NULL AND n.vetoed_at IS NULL
        GROUP BY n.id
-       ORDER BY interest DESC, n.created_at ASC
+       -- Ties keep their existing order: the one that reached the count first
+       -- stays ahead, so catching up never overtakes.
+       ORDER BY interest DESC, reached_at ASC, n.id ASC
        ${limit ? 'LIMIT ' + Number(limit) : ''}`,
     )
     .all(channelId) as Nomination[];
@@ -302,17 +307,29 @@ export function castBallot(
   const valid = new Set(pollOptions(channelId, pollId).map((o) => o.nomination_id));
   const picks = [...new Set(nominationIds)].filter((id) => valid.has(id));
 
+  // Diff rather than replace: rewriting every row would restamp picks the voter
+  // never touched, and the tie-break reads those timestamps.
   const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`).run(
-      pollId,
-      channelId,
-      userId,
+    const kept = new Set(picks);
+    const existing = db
+      .prepare(`SELECT nomination_id FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`)
+      .all(pollId, channelId, userId) as { nomination_id: number }[];
+    const had = new Set(existing.map((r) => r.nomination_id));
+
+    const drop = db.prepare(
+      `DELETE FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ? AND nomination_id = ?`,
     );
+    for (const r of existing) {
+      if (!kept.has(r.nomination_id)) drop.run(pollId, channelId, userId, r.nomination_id);
+    }
+
     const ins = db.prepare(
       `INSERT INTO ballots (poll_id, channel_id, user_id, nomination_id, source, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     );
-    for (const id of picks) ins.run(pollId, channelId, userId, id, source, now());
+    for (const id of picks) {
+      if (!had.has(id)) ins.run(pollId, channelId, userId, id, source, now());
+    }
   });
   tx();
   return picks.length;
@@ -329,13 +346,16 @@ export function tally(channelId: string, pollId: number): Tally[] {
   return db
     .prepare(
       `SELECT o.nomination_id, n.title, n.year, n.poster_path, n.backdrop_path,
-              n.trailer_key, n.overview, COUNT(b.user_id) AS approvals
+              n.trailer_key, n.overview, COUNT(b.user_id) AS approvals,
+              COALESCE(MAX(b.created_at), 0) AS reached_at
        FROM poll_options o
        JOIN nominations n ON n.id = o.nomination_id
        LEFT JOIN ballots b ON b.nomination_id = o.nomination_id AND b.poll_id = o.poll_id
        WHERE o.poll_id = ? AND o.channel_id = ?
        GROUP BY o.nomination_id
-       ORDER BY approvals DESC, n.created_at ASC`,
+       -- Same rule as the board, so the live bars and the winner agree: a
+       -- movie that ties only draws level, it does not overtake.
+       ORDER BY approvals DESC, reached_at ASC, o.position ASC`,
     )
     .all(pollId, channelId) as Tally[];
 }
