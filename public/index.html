@@ -499,7 +499,11 @@ async function choose(movie) {
 
 function render() {
   renderAuth();
-  $('#main').innerHTML =
+  const main = $('#main');
+  // Rebuilt nodes must not animate into whatever state they are already in.
+  main.classList.add('settling');
+  requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('settling')));
+  main.innerHTML =
     state.phase === 'voting' ? renderVoting()
     : state.phase === 'results' ? renderResults()
     : renderNominating();
