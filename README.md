@@ -11,8 +11,9 @@ the same Twitch user id, so one person is one ballot either way.
 poster, a year, and a stable id — which keeps The Thing (1982) and The Thing
 (2011) apart. Adding interest ranks the shortlist. It is not the vote.
 
-**On stream** — the streamer opens a poll on the top N. Approval voting: check
-*every* movie you'd be happy to watch, not just one. Timer runs out, winner locks.
+**On stream** — the streamer opens a poll on the top N. One vote each; you can
+move it until the timer runs out. Most votes wins, and ties go to whichever movie
+reached that count first.
 
 **After** — the winner leaves the board and can't come back for
 `REPEAT_LOCKOUT_WEEKS`. Everyone else carries over with their interest intact.
@@ -86,13 +87,15 @@ whatever the accent is.
 | `!nominate <title>` | anyone |
 | `!movies` | anyone |
 | `!interest <id>` | anyone |
-| `!vote 1 3` | anyone, while a poll is open |
+| `!vote 2` | anyone, while a poll is open |
 | `!poll [seconds]` | mods + streamer |
 | `!endpoll` | mods + streamer |
 | `!veto <id> [reason]` | mods + streamer |
 
 Votes get no chat reply on purpose — a busy chat would flood. The overlay shows
 them land.
+
+Only the first number counts: `!vote 3 5` is a vote for 3.
 
 ## Scripts
 

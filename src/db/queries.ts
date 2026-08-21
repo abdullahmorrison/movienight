@@ -20,7 +20,7 @@ export type Nomination = {
 export type Tally = {
   nomination_id: number;
   title: string;
-  approvals: number;
+  votes: number;
   reached_at: number;
   year: number | null;
   poster_path: string | null;
@@ -51,13 +51,21 @@ export function titleKey(title: string): string {
     .trim();
 }
 
-export function upsertUser(id: string, login: string, displayName?: string): void {
+export function upsertUser(
+  id: string,
+  login: string,
+  displayName?: string,
+  avatarUrl?: string | null,
+): void {
   db.prepare(
-    `INSERT INTO users (id, login, display_name, updated_at) VALUES (?, ?, ?, ?)
+    `INSERT INTO users (id, login, display_name, avatar_url, updated_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET login = excluded.login,
                                    display_name = excluded.display_name,
+                                   -- Chat messages carry no avatar; keep the one
+                                   -- we already have rather than blanking it.
+                                   avatar_url = COALESCE(excluded.avatar_url, users.avatar_url),
                                    updated_at = excluded.updated_at`,
-  ).run(id, login.toLowerCase(), displayName ?? login, now());
+  ).run(id, login.toLowerCase(), displayName ?? login, avatarUrl ?? null, now());
 }
 
 // --- nominations ---------------------------------------------------------
@@ -292,61 +300,64 @@ export function pollOptions(channelId: string, pollId: number) {
   }[];
 }
 
-/** Replaces the voter's whole ballot — approval voting, so many picks per voter. */
-export function castBallot(
+/**
+ * One vote per person. Re-voting for the same movie is a no-op so the tie-break
+ * timestamp is not disturbed; voting for a different one moves the vote.
+ */
+export function castVote(
   channelId: string,
   pollId: number,
   userId: string,
-  nominationIds: number[],
+  nominationId: number,
   source: 'web' | 'chat',
 ): number {
   const poll = getPoll(channelId, pollId);
   if (!poll || poll.status !== 'open') throw new Error('No poll is open');
   if (now() > poll.closes_at) throw new Error('Voting has closed');
 
-  const valid = new Set(pollOptions(channelId, pollId).map((o) => o.nomination_id));
-  const picks = [...new Set(nominationIds)].filter((id) => valid.has(id));
+  const valid = pollOptions(channelId, pollId).some((o) => o.nomination_id === nominationId);
+  if (!valid) throw new Error('That movie is not on this poll');
 
-  // Diff rather than replace: rewriting every row would restamp picks the voter
-  // never touched, and the tie-break reads those timestamps.
   const tx = db.transaction(() => {
-    const kept = new Set(picks);
-    const existing = db
-      .prepare(`SELECT nomination_id FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`)
-      .all(pollId, channelId, userId) as { nomination_id: number }[];
-    const had = new Set(existing.map((r) => r.nomination_id));
+    const current = myVote(channelId, pollId, userId);
+    if (current === nominationId) return;
 
-    const drop = db.prepare(
-      `DELETE FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ? AND nomination_id = ?`,
+    db.prepare(`DELETE FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`).run(
+      pollId,
+      channelId,
+      userId,
     );
-    for (const r of existing) {
-      if (!kept.has(r.nomination_id)) drop.run(pollId, channelId, userId, r.nomination_id);
-    }
-
-    const ins = db.prepare(
+    db.prepare(
       `INSERT INTO ballots (poll_id, channel_id, user_id, nomination_id, source, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-    );
-    for (const id of picks) {
-      if (!had.has(id)) ins.run(pollId, channelId, userId, id, source, now());
-    }
+    ).run(pollId, channelId, userId, nominationId, source, now());
   });
   tx();
-  return picks.length;
+  return nominationId;
 }
 
-export function myBallot(channelId: string, pollId: number, userId: string): number[] {
-  const rows = db
-    .prepare(`SELECT nomination_id FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`)
-    .all(pollId, channelId, userId) as { nomination_id: number }[];
-  return rows.map((r) => r.nomination_id);
+export function clearVote(channelId: string, pollId: number, userId: string): void {
+  db.prepare(`DELETE FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ?`).run(
+    pollId,
+    channelId,
+    userId,
+  );
+}
+
+export function myVote(channelId: string, pollId: number, userId: string): number | null {
+  const row = db
+    .prepare(
+      `SELECT nomination_id FROM ballots WHERE poll_id = ? AND channel_id = ? AND user_id = ? LIMIT 1`,
+    )
+    .get(pollId, channelId, userId) as { nomination_id: number } | undefined;
+  return row?.nomination_id ?? null;
 }
 
 export function tally(channelId: string, pollId: number): Tally[] {
   return db
     .prepare(
       `SELECT o.nomination_id, n.title, n.year, n.poster_path, n.backdrop_path,
-              n.trailer_key, n.overview, COUNT(b.user_id) AS approvals,
+              n.trailer_key, n.overview, COUNT(b.user_id) AS votes,
               COALESCE(MAX(b.created_at), 0) AS reached_at
        FROM poll_options o
        JOIN nominations n ON n.id = o.nomination_id
@@ -355,7 +366,7 @@ export function tally(channelId: string, pollId: number): Tally[] {
        GROUP BY o.nomination_id
        -- Same rule as the board, so the live bars and the winner agree: a
        -- movie that ties only draws level, it does not overtake.
-       ORDER BY approvals DESC, reached_at ASC, o.position ASC`,
+       ORDER BY votes DESC, reached_at ASC, o.position ASC`,
     )
     .all(pollId, channelId) as Tally[];
 }
@@ -405,11 +416,13 @@ export function createSession(id: string, channelId: string, userId: string, ttl
 export function getSession(id: string, channelId: string) {
   return db
     .prepare(
-      `SELECT s.user_id, u.login, u.display_name FROM sessions s
+      `SELECT s.user_id, u.login, u.display_name, u.avatar_url FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.id = ? AND s.channel_id = ? AND s.expires_at > ?`,
     )
-    .get(id, channelId, now()) as { user_id: string; login: string; display_name: string } | undefined;
+    .get(id, channelId, now()) as
+    | { user_id: string; login: string; display_name: string; avatar_url: string | null }
+    | undefined;
 }
 
 export function deleteSession(id: string): void {

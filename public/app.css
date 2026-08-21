@@ -73,6 +73,53 @@ header.top h1 small {
 .who { color: var(--muted); font-size: 13px; }
 #auth { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
+
+/* ---------- profile menu ---------- */
+
+.profile { position: relative; }
+.profile-btn {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 999px;
+  padding: 5px 12px 5px 5px; color: var(--text); font: inherit; font-size: 14px; font-weight: 600;
+  transition: background .12s, border-color .12s;
+}
+.profile-btn:hover { background: var(--surface-2); border-color: var(--line); }
+.profile.open .profile-btn { background: var(--surface-2); border-color: var(--line); }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  object-fit: cover; background: var(--surface-3); display: block;
+}
+.avatar.fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-weight: 800; font-size: 14px;
+}
+.pname { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-btn .chev { width: 15px; height: 15px; flex: none; transition: transform .18s; opacity: .8; }
+.profile.open .profile-btn .chev { transform: rotate(180deg); }
+
+.profile-menu {
+  position: absolute; z-index: 90; top: calc(100% + 9px); right: 0; min-width: 244px;
+  background: #101010; border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow); padding: 14px; text-align: left;
+}
+.profile-menu[hidden] { display: none; }
+.menu-head {
+  font-size: 13px; color: var(--muted); line-height: 1.5;
+  padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.menu-head b { display: block; color: var(--text); font-size: 15px; }
+.menu-head .tag {
+  display: inline-block; margin-top: 6px; background: var(--accent); color: #fff;
+  border-radius: 3px; padding: 2px 8px; font-size: 10px;
+  font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+}
+.menu-links { display: flex; flex-direction: column; margin-bottom: 12px; }
+.menu-links a {
+  color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600;
+  padding: 8px 10px; border-radius: 5px; margin: 0 -4px;
+}
+.menu-links a:hover { color: var(--text); background: var(--surface-2); }
+.profile-menu .btn { width: 100%; }
 .brand-icon.stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
 /* ---------- buttons ---------- */

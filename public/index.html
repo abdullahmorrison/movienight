@@ -43,11 +43,13 @@
 </div>
 
 <script type="module">
+import { profileHtml, wireProfile } from '/profile.js';
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 let state = null;
-let picks = new Set();
+let pick = null;      // one vote per person
 let dirty = false;
 let searchOpen = [];
 
@@ -121,14 +123,13 @@ function toast(msg, isErr) {
 function renderAuth() {
   $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
-    ? `<span class="who">${esc(state.me.login)}${state.me.isBroadcaster ? ' · streamer' : ''}</span>
-       ${state.me.isBroadcaster
-         ? `<a class="btn" href="/control">${SLIDERS_ICON} Control</a>`
-         : ''}
-       <button class="btn grey" id="logout">Sign out</button>`
+    ? `${state.me.isBroadcaster ? `<a class="btn" href="/control">${SLIDERS_ICON} Control</a>` : ''}
+       ${profileHtml(state.me, state.me.isBroadcaster
+         ? [{ href: '/control', label: 'Control panel' },
+            { href: '/overlay', label: 'OBS overlay', external: true }]
+         : [])}`
     : `<a class="btn cta" href="/auth/login"><svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg> Sign in with Twitch</a>`;
-  const out = $('#logout');
-  if (out) out.onclick = async () => { await post('/auth/logout'); location.reload(); };
+  wireProfile(async () => { await post('/auth/logout'); location.reload(); });
 }
 
 /* ---------- hero ---------- */
@@ -202,12 +203,12 @@ function openDetail(id) {
 
   const back = img(m.backdrop, 'w1280') ?? img(m.poster, 'w780');
   const wants = m.interest ?? null;
-  const votes = m.approvals ?? null;
+  const votes = m.votes ?? null;
   const mine = state.myInterest.includes(id);
 
   const wantLabel = mine ? '✓ Want it' : '+ Want it';
   const voting = state.phase === 'voting';
-  const onBallot = picks.has(id);
+  const onBallot = pick === id;
 
   $('#detail-sheet').innerHTML = `
     <div class="detail-art">
@@ -222,7 +223,7 @@ function openDetail(id) {
             : ''}
           ${voting
             ? `<button class="btn ${onBallot ? 'cta' : 'grey'}" data-detail-vote="${id}">
-                 ${onBallot ? '✓ You voted for this' : '+ Vote for this'}</button>`
+                 ${onBallot ? '✓ Your vote' : 'Vote for this'}</button>`
             : `<button class="btn ${mine ? 'cta' : 'grey'}" data-detail-want="${id}">
                  ${mine ? '✓ Want it' : '+ Want it'}</button>`}
         </div>
@@ -250,7 +251,7 @@ function openDetail(id) {
   const vote = $('[data-detail-vote]');
   if (vote) vote.onclick = () => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
-    picks.has(id) ? picks.delete(id) : picks.add(id);
+    pick = pick === id ? null : id;
     dirty = true;
     render(); // redraws this dialog too
   };
@@ -311,8 +312,8 @@ function nomTile(n, i) {
 }
 
 function ballotTile(o) {
-  const on = picks.has(o.nominationId);
-  const max = Math.max(1, ...state.options.map((x) => x.approvals));
+  const on = pick === o.nominationId;
+  const max = Math.max(1, ...state.options.map((x) => x.votes));
   return `
     <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
          role="checkbox" tabindex="0" aria-checked="${on}">
@@ -324,8 +325,8 @@ function ballotTile(o) {
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
-      <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
-      <div class="stat"><b>${o.approvals}</b> ${o.approvals === 1 ? 'vote' : 'votes'}</div>
+      <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
+      <div class="stat"><b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>
       ${o.trailer ? `<div class="tools">${trailerBtn(o)}</div>` : ''}
     </div>`;
 }
@@ -391,18 +392,17 @@ function renderVoting() {
     <div class="pad">
       ${steps()}
       <div class="row-head">
-        <h3>Pick everything you'd watch</h3>
-        <span class="note">Click a poster, or type its command in chat</span>
+        <h3>Pick one movie</h3>
+        <span class="note">Click a poster, or type its command in chat. You can change it until time runs out.</span>
       </div>
     </div>
     <div class="grid">${state.options.map(ballotTile).join('')}</div>
     <div class="pad">
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <button class="btn cta" id="submit" ${state.me && !dirty ? 'disabled' : ''}>
-          ${!state.me ? 'Sign in to vote'
-            : dirty ? `Submit ${picks.size} pick${picks.size === 1 ? '' : 's'}` : 'Vote saved'}
+          ${!state.me ? 'Sign in to vote' : dirty ? 'Submit my vote' : 'Vote saved'}
         </button>
-        <span class="muted">${state.voters} voted${state.me ? '' : ' · or type !vote 1 3 in chat'}</span>
+        <span class="muted">${state.voters} voted${state.me ? '' : ' · or type !vote 2 in chat'}</span>
       </div>
       <div class="toast" id="toast"></div>
     </div>`;
@@ -410,10 +410,10 @@ function renderVoting() {
 
 function renderResults() {
   const w = state.winner;
-  const max = Math.max(1, ...state.options.map((x) => x.approvals));
+  const max = Math.max(1, ...state.options.map((x) => x.votes));
   const head = w
     ? hero(w, '🏆 Tonight’s movie',
-        `Won with <b>${w.approvals}</b> of <b>${state.voters}</b> ${state.voters === 1 ? 'vote' : 'votes'}${w.year ? ` · ${w.year}` : ''}`,
+        `Won with <b>${w.votes}</b> of <b>${state.voters}</b> ${state.voters === 1 ? 'vote' : 'votes'}${w.year ? ` · ${w.year}` : ''}`,
         trailerBtn(w, 'btn'))
     : `<div class="empty">Poll closed with no votes cast.</div>`;
 
@@ -425,9 +425,9 @@ function renderResults() {
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
-      <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
+      <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
       <div class="stat ${o.nominationId === w?.nominationId ? 'win' : ''}">
-        <b>${o.approvals}</b> ${o.approvals === 1 ? 'vote' : 'votes'}</div>
+        <b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>
     </div>`).join('')}</div>`;
 
   return `${head}
@@ -543,7 +543,7 @@ function render() {
     : renderNominating();
 
   $('#cmds').innerHTML = state.phase === 'voting'
-    ? 'In chat: <code>!vote 1 3</code>'
+    ? 'In chat: <code>!vote 2</code> — one movie each'
     : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code> · <code>!trailer &lt;id&gt;</code>';
 
   wireSearch();
@@ -565,20 +565,21 @@ function render() {
     el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') show(e); };
   });
 
-  const toggle = (el) => {
+  const choose_ = (el) => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
     const id = Number(el.dataset.id);
-    picks.has(id) ? picks.delete(id) : picks.add(id);
+    // One vote each: picking a different movie moves it rather than adding.
+    pick = pick === id ? null : id;
     dirty = true;
     render();
   };
   $$('.tile.pick').forEach((el) => {
     el.onclick = (e) => {
-      // Let the trailer link through instead of toggling the pick.
+      // Let the trailer link through instead of changing the vote.
       if (e.target.closest('a')) return;
-      toggle(el);
+      choose_(el);
     };
-    el.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(el); } };
+    el.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose_(el); } };
   });
 
   if (detailId !== null) openDetail(detailId);
@@ -589,10 +590,10 @@ function render() {
     submit.disabled = true;
     submit.textContent = 'Saving…';
     try {
-      await post('/api/vote', { nominationIds: [...picks] });
+      await post('/api/vote', { nominationId: pick });
       dirty = false;
       await refresh();
-      toast('Vote saved — change it any time before the timer runs out.');
+      toast('Vote saved — you can change it until the timer runs out.');
     } catch (e) {
       toast(e.message, true);
       render();
@@ -606,8 +607,8 @@ function apply(next) {
   const term = typing ? $('#q').value : null;
 
   state = next;
-  // Never clobber picks someone is mid-edit on.
-  if (pollChanged || !dirty) picks = new Set(next.myBallot ?? []);
+  // Never clobber a vote someone is mid-edit on.
+  if (pollChanged || !dirty) pick = next.myVote ?? null;
   render();
 
   if (typing) {
@@ -624,7 +625,7 @@ function connect() {
     // The socket carries no session, so keep our authenticated fields.
     if (msg.type === 'state') {
       apply({ ...msg.data, channel: state?.channel, me: state?.me ?? null,
-              myInterest: state?.myInterest ?? [], myBallot: state?.myBallot ?? [] });
+              myInterest: state?.myInterest ?? [], myVote: state?.myVote ?? null });
     }
   };
   ws.onclose = () => setTimeout(connect, 2000);

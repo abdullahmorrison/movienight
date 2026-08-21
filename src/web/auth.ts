@@ -8,7 +8,12 @@ const SESSION_COOKIE = 'mn_session';
 const STATE_COOKIE = 'mn_state';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-export type SessionUser = { id: string; login: string; displayName: string };
+export type SessionUser = {
+  id: string;
+  login: string;
+  displayName: string;
+  avatar: string | null;
+};
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -70,7 +75,14 @@ export function loadUser(req: Request, _res: Response, next: NextFunction): void
   const raw = unpack(cookies(req)[SESSION_COOKIE]);
   if (raw) {
     const s = q.getSession(raw, config.channel.id);
-    if (s) req.user = { id: s.user_id, login: s.login, displayName: s.display_name ?? s.login };
+    if (s) {
+      req.user = {
+        id: s.user_id,
+        login: s.login,
+        displayName: s.display_name ?? s.login,
+        avatar: s.avatar_url,
+      };
+    }
   }
   next();
 }
@@ -143,14 +155,14 @@ export function authRoutes(): Router {
       });
       if (!userRes.ok) throw new Error(`user lookup failed: ${userRes.status}`);
       const body = (await userRes.json()) as {
-        data: { id: string; login: string; display_name: string }[];
+        data: { id: string; login: string; display_name: string; profile_image_url?: string }[];
       };
       const me = body.data[0];
       if (!me) throw new Error('no user returned');
 
       // We only ever wanted the identity. Drop the access token on the floor —
       // nothing to store, nothing to leak, nothing to refresh.
-      q.upsertUser(me.id, me.login, me.display_name);
+      q.upsertUser(me.id, me.login, me.display_name, me.profile_image_url ?? null);
       const sid = crypto.randomBytes(24).toString('base64url');
       q.createSession(sid, config.channel.id, me.id, SESSION_TTL_MS);
       setCookie(res, SESSION_COOKIE, pack(sid), SESSION_TTL_MS);

@@ -116,37 +116,39 @@ check(
   '/1091-back.jpg',
 );
 
-// Approval voting: voters pick everything they'd watch.
-q.castBallot(CH, p.id, users.alice, [options[0]!.nomination_id, options[1]!.nomination_id], 'web');
-q.castBallot(CH, p.id, users.bob, [options[1]!.nomination_id], 'chat');
-q.castBallot(CH, p.id, users.carol, [options[1]!.nomination_id, options[2]!.nomination_id], 'chat');
+// One vote each.
+q.castVote(CH, p.id, users.alice, options[1]!.nomination_id, 'web');
+q.castVote(CH, p.id, users.bob, options[1]!.nomination_id, 'chat');
+q.castVote(CH, p.id, users.carol, options[2]!.nomination_id, 'chat');
 
 // Same person votes in chat then changes their mind on the site.
-q.castBallot(CH, p.id, users.dave, [options[0]!.nomination_id], 'chat');
-q.castBallot(CH, p.id, users.dave, [options[1]!.nomination_id, options[2]!.nomination_id], 'web');
-check('one identity, one ballot — the web vote replaces the chat vote', q.myBallot(CH, p.id, users.dave), [
-  options[1]!.nomination_id,
-  options[2]!.nomination_id,
-]);
-check('voter count counts people, not picks', q.voterCount(CH, p.id), 4);
+q.castVote(CH, p.id, users.dave, options[0]!.nomination_id, 'chat');
+q.castVote(CH, p.id, users.dave, options[1]!.nomination_id, 'web');
+check('one identity, one vote — the web vote replaces the chat vote', q.myVote(CH, p.id, users.dave),
+  options[1]!.nomination_id);
+check('changing your vote never adds a second one', q.voterCount(CH, p.id), 4);
 
 const results = q.tally(CH, p.id);
 // Dave's chat pick of option 1 was replaced by his web ballot, so it counts once for Alice only.
-check('approvals tallied', results.map((r) => [r.title, r.approvals]), [
-  [options[1]!.title, 4],
-  [options[2]!.title, 2],
-  [options[0]!.title, 1],
+// alice, bob and dave all landed on option 1; carol on option 2; option 0 lost
+// dave's vote when he switched, so it keeps nothing.
+check('votes tallied', results.map((r) => [r.title, r.votes]), [
+  [options[1]!.title, 3],
+  [options[2]!.title, 1],
+  [options[0]!.title, 0],
 ]);
 
-check(
-  'votes for movies not on the ballot are dropped',
-  q.castBallot(CH, p.id, users.alice, [99999], 'chat'),
-  0,
-);
+let rejected = false;
+try {
+  q.castVote(CH, p.id, users.alice, 99999, 'chat');
+} catch {
+  rejected = true;
+}
+check('a vote for a movie not on the poll is refused', rejected, true);
 
 console.log('\n— closing —');
 const winner = poll.close(CH);
-check('winner is the most-approved', winner?.title, options[1]!.title);
+check('winner is the most-voted', winner?.title, options[1]!.title);
 check('poll is closed', q.getOpenPoll(CH), undefined);
 
 console.log('\n— after the poll —');
@@ -166,7 +168,7 @@ check('winner is locked out from re-nomination', relock.ok === false && relock.r
 
 console.log('\n— restart mid-poll —');
 const p2 = poll.open(CH, 120);
-q.castBallot(CH, p2.id, users.alice, [q.pollOptions(CH, p2.id)[0]!.nomination_id], 'web');
+q.castVote(CH, p2.id, users.alice, q.pollOptions(CH, p2.id)[0]!.nomination_id, 'web');
 poll.resume(CH); // simulates the process coming back up
 check('poll survives a restart', q.getOpenPoll(CH)?.id, p2.id);
 check('votes survive a restart', q.voterCount(CH, p2.id), 1);
@@ -209,18 +211,24 @@ await tick();
 q.addInterest(CH, alienId, u.c);
 check('going one better overtakes', order().indexOf('Alien') < order().indexOf('Solaris'), true);
 
-console.log('\n— resubmitting a ballot —');
+console.log('\n— one vote each —');
 const p3 = poll.open(CH, 120);
 const opts = q.pollOptions(CH, p3.id);
-q.castBallot(CH, p3.id, u.a, [opts[0]!.nomination_id], 'web');
+q.castVote(CH, p3.id, u.a, opts[0]!.nomination_id, 'web');
 await tick();
-q.castBallot(CH, p3.id, u.b, [opts[1]!.nomination_id], 'web');
+q.castVote(CH, p3.id, u.b, opts[1]!.nomination_id, 'web');
 const leader = q.tally(CH, p3.id)[0]!.nomination_id;
 
-// Re-sending an unchanged pick must not restamp it and reshuffle the bars.
+// Re-sending the same vote must not restamp it and reshuffle the bars.
 await tick();
-q.castBallot(CH, p3.id, u.a, [opts[0]!.nomination_id], 'web');
-check('resubmitting an unchanged vote keeps the order', q.tally(CH, p3.id)[0]!.nomination_id, leader);
+q.castVote(CH, p3.id, u.a, opts[0]!.nomination_id, 'web');
+check('re-sending the same vote keeps the order', q.tally(CH, p3.id)[0]!.nomination_id, leader);
+
+// Switching moves the vote instead of adding one.
+q.castVote(CH, p3.id, u.a, opts[1]!.nomination_id, 'web');
+const after = new Map(q.tally(CH, p3.id).map((t) => [t.nomination_id, t.votes]));
+check('switching moves the vote', [after.get(opts[0]!.nomination_id), after.get(opts[1]!.nomination_id)], [0, 2]);
+check('and the voter is still counted once', q.voterCount(CH, p3.id), 2);
 poll.close(CH);
 
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);

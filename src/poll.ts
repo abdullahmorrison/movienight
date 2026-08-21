@@ -18,10 +18,10 @@ export type Card = {
 export type Snapshot = {
   phase: 'nominating' | 'voting' | 'results';
   poll: { id: number; closesAt: number; closedAt: number | null } | null;
-  options: (Card & { position: number; nominationId: number; approvals: number })[];
+  options: (Card & { position: number; nominationId: number; votes: number })[];
   nominations: (Card & { id: number; nominator: string; interest: number })[];
   voters: number;
-  winner: (Card & { nominationId: number; approvals: number }) | null;
+  winner: (Card & { nominationId: number; votes: number }) | null;
   rules: typeof config.rules;
   posterBase: string;
 };
@@ -67,7 +67,7 @@ export function snapshot(channelId: string): Snapshot {
     backdrop: o.backdrop_path,
     trailer: o.trailer_key,
     overview: o.overview,
-    approvals: counts.get(o.nomination_id)?.approvals ?? 0,
+    votes: counts.get(o.nomination_id)?.votes ?? 0,
   }));
 
   const isOpen = poll.status === 'open';
@@ -83,7 +83,7 @@ export function snapshot(channelId: string): Snapshot {
         backdrop: w.backdrop_path,
         trailer: w.trailer_key,
         overview: w.overview,
-        approvals: w.approvals,
+        votes: w.votes,
       };
     }
   }

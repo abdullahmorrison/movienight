@@ -7,10 +7,25 @@ import { config } from '../config.js';
 import * as q from '../db/queries.js';
 import * as poll from '../poll.js';
 import * as tmdb from '../tmdb.js';
+import { lookupAvatar } from '../twitch.js';
 import { authRoutes, loadUser, requireUser, requireBroadcaster } from './auth.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../public');
 const CHANNEL = config.channel.id;
+
+// Accounts that signed in before avatars were stored, and chat-only users, have
+// none. Fill it in once per process rather than making anyone sign in again.
+const avatarTried = new Set<string>();
+
+function backfillAvatar(userId: string, login: string): void {
+  if (avatarTried.has(userId)) return;
+  avatarTried.add(userId);
+  lookupAvatar(userId)
+    .then((url) => {
+      if (url) q.upsertUser(userId, login, undefined, url);
+    })
+    .catch((err) => console.warn('[twitch] avatar backfill failed', (err as Error).message));
+}
 
 export function createServer(): http.Server {
   const app = express();
@@ -19,15 +34,22 @@ export function createServer(): http.Server {
   app.use(authRoutes());
 
   app.get('/api/state', (req, res) => {
+    if (req.user && !req.user.avatar) backfillAvatar(req.user.id, req.user.login);
     const snap = poll.snapshot(CHANNEL);
     res.json({
       ...snap,
       channel: config.channel.login,
       me: req.user
-        ? { id: req.user.id, login: req.user.login, isBroadcaster: req.user.id === CHANNEL }
+        ? {
+            id: req.user.id,
+            login: req.user.login,
+            displayName: req.user.displayName,
+            avatar: req.user.avatar,
+            isBroadcaster: req.user.id === CHANNEL,
+          }
         : null,
       myInterest: req.user ? q.myInterest(CHANNEL, req.user.id) : [],
-      myBallot: req.user && snap.poll ? q.myBallot(CHANNEL, snap.poll.id, req.user.id) : [],
+      myVote: req.user && snap.poll ? q.myVote(CHANNEL, snap.poll.id, req.user.id) : null,
     });
   });
 
@@ -117,12 +139,22 @@ export function createServer(): http.Server {
       res.status(409).json({ error: 'No poll is open.' });
       return;
     }
-    const raw = (req.body as { nominationIds?: unknown }).nominationIds;
-    const ids = Array.isArray(raw) ? raw.map(Number).filter(Number.isInteger) : [];
+    const raw = (req.body as { nominationId?: unknown }).nominationId;
     try {
-      const count = q.castBallot(CHANNEL, open.id, req.user!.id, ids, 'web');
+      if (raw === null) {
+        q.clearVote(CHANNEL, open.id, req.user!.id);
+        poll.broadcast(CHANNEL);
+        res.json({ ok: true, nominationId: null });
+        return;
+      }
+      const id = Number(raw);
+      if (!Number.isInteger(id)) {
+        res.status(400).json({ error: 'Pick a movie.' });
+        return;
+      }
+      q.castVote(CHANNEL, open.id, req.user!.id, id, 'web');
       poll.broadcast(CHANNEL);
-      res.json({ ok: true, picks: count });
+      res.json({ ok: true, nominationId: id });
     } catch (err) {
       res.status(409).json({ error: (err as Error).message });
     }

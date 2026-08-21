@@ -22,6 +22,20 @@ async function getAppToken(): Promise<string> {
   return appToken.value;
 }
 
+export async function lookupAvatar(userId: string): Promise<string | null> {
+  const token = await getAppToken();
+  const url = new URL('https://api.twitch.tv/helix/users');
+  url.searchParams.set('id', userId);
+
+  const res = await fetch(url, {
+    headers: { 'Client-Id': config.twitch.clientId, Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+
+  const body = (await res.json()) as { data: { profile_image_url?: string }[] };
+  return body.data[0]?.profile_image_url ?? null;
+}
+
 export async function lookupUserId(login: string): Promise<string | null> {
   const token = await getAppToken();
   const url = new URL('https://api.twitch.tv/helix/users');

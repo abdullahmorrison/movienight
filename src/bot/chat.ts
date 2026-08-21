@@ -75,7 +75,7 @@ export async function startBot(): Promise<ChatClient | null> {
     chat.say(
       config.channel.login,
       winner
-        ? `🎬 Voting closed — tonight's movie is ${winner.title} (${winner.approvals} approvals).`
+        ? `🎬 Voting closed — tonight's movie is ${winner.title} with ${winner.votes} ${winner.votes === 1 ? 'vote' : 'votes'}.`
         : '🎬 Voting closed with no votes cast.',
     );
   });
@@ -176,25 +176,21 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
         return;
       }
       const options = q.pollOptions(CHANNEL, open.id);
-      const positions = arg
-        .split(/[\s,]+/)
-        .map((t) => Number(t.replace('#', '')))
-        .filter((n) => Number.isInteger(n));
-      if (positions.length === 0) {
+      // One vote each, so only the first number counts.
+      const position = Number((arg.split(/[\s,]+/)[0] ?? '').replace('#', ''));
+      if (!Number.isInteger(position)) {
         if (canErrorReply(`vote:${userId}`)) {
-          say(`@${login} usage: !vote 1 3 — pick every movie you'd watch`);
+          say(`@${login} usage: !vote 2 — one movie each`);
         }
         return;
       }
-      const picks = positions
-        .map((p) => options.find((o) => o.position === p)?.nomination_id)
-        .filter((id): id is number => id !== undefined);
-      if (picks.length === 0) {
-        if (canErrorReply(`vote:${userId}`)) say(`@${login} those aren't on the ballot`);
+      const chosen = options.find((o) => o.position === position);
+      if (!chosen) {
+        if (canErrorReply(`vote:${userId}`)) say(`@${login} there's no #${position} on this poll`);
         return;
       }
       // No per-vote reply: a busy chat would flood. The overlay shows it land.
-      q.castBallot(CHANNEL, open.id, userId, picks, 'chat');
+      q.castVote(CHANNEL, open.id, userId, chosen.nomination_id, 'chat');
       poll.broadcast(CHANNEL);
       return;
     }
@@ -206,7 +202,7 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
         const p = poll.open(CHANNEL, seconds);
         const options = q.pollOptions(CHANNEL, p.id);
         say(
-          `🗳️ Voting is OPEN for ${seconds}s — !vote with every movie you'd watch: ${options
+          `🗳️ Voting is OPEN for ${seconds}s — !vote <number> for ONE movie: ${options
             .map((o) => `${o.position}) ${o.title}`)
             .join(' · ')}`,
         );

@@ -125,15 +125,15 @@ function render() {
 
   if (state.phase === 'voting') {
     const left = state.poll.closesAt - Date.now();
-    const max = Math.max(0, ...state.options.map((o) => o.approvals));
+    const max = Math.max(0, ...state.options.map((o) => o.votes));
     p.innerHTML = `
       <div class="head">
-        <h1>Voting open<span class="cmd">Type <code>!vote 1 3</code> in chat</span></h1>
+        <h1>Voting open<span class="cmd">Type <code>!vote 2</code> in chat</span></h1>
         <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
       </div>
-      <div class="row">${tiles(state.options, (o) => o.approvals, max, ['vote', 'votes'])}</div>
+      <div class="row">${tiles(state.options, (o) => o.votes, max, ['vote', 'votes'])}</div>
       <div class="foot">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted ·
-        vote for every movie you'd watch, not just one</div>`;
+        one vote each, change it any time before the timer ends</div>`;
     return;
   }
 
@@ -145,7 +145,7 @@ function render() {
         <div>
           <div class="k">Tonight's movie</div>
           <h2>${esc(w.title)}</h2>
-          <div class="sub">${w.year ? w.year + ' · ' : ''}won with ${w.approvals} of
+          <div class="sub">${w.year ? w.year + ' · ' : ''}won with ${w.votes} of
             ${state.voters} ${state.voters === 1 ? 'vote' : 'votes'}</div>
         </div>
       </div>`;

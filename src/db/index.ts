@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,
   login         TEXT NOT NULL,
   display_name  TEXT,
+  avatar_url    TEXT,
   updated_at    INTEGER NOT NULL
 );
 
@@ -106,6 +107,7 @@ function addColumn(table: string, column: string, decl: string): void {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
 }
 
+addColumn('users', 'avatar_url', 'TEXT');
 addColumn('nominations', 'tmdb_id', 'INTEGER');
 addColumn('nominations', 'year', 'INTEGER');
 addColumn('nominations', 'poster_path', 'TEXT');
