@@ -8,12 +8,27 @@ export type Nomination = {
   nominator_login: string;
   created_at: number;
   interest: number;
+  tmdb_id: number | null;
+  year: number | null;
+  poster_path: string | null;
+  overview: string | null;
 };
 
 export type Tally = {
   nomination_id: number;
   title: string;
   approvals: number;
+  year: number | null;
+  poster_path: string | null;
+};
+
+/** What we store about a pick, whether it came from TMDB search or a typed title. */
+export type MovieInput = {
+  title: string;
+  tmdbId?: number | null;
+  year?: number | null;
+  posterPath?: string | null;
+  overview?: string | null;
 };
 
 /** Collapse punctuation/case/articles so "The Thing" and "the thing!" are one movie. */
@@ -42,10 +57,12 @@ export type NominateResult =
   | { ok: true; id: number; title: string }
   | { ok: false; reason: 'cap' | 'locked' | 'duplicate'; detail?: string; id?: number };
 
-export function nominate(channelId: string, title: string, userId: string): NominateResult {
-  const clean = title.trim().replace(/\s+/g, ' ').slice(0, 120);
-  const key = titleKey(clean);
-  if (!key) return { ok: false, reason: 'duplicate', detail: 'Give me an actual title.' };
+export function nominate(channelId: string, movie: MovieInput, userId: string): NominateResult {
+  const clean = movie.title.trim().replace(/\s+/g, ' ').slice(0, 160);
+  // A TMDB id is the better identity: it keeps The Thing (1982) and
+  // The Thing (2011) apart, which a normalised title cannot.
+  const key = movie.tmdbId ? `tmdb:${movie.tmdbId}` : titleKey(clean);
+  if (!key || key === 'tmdb:') return { ok: false, reason: 'duplicate', detail: 'Give me an actual title.' };
 
   const existing = db
     .prepare(
@@ -80,10 +97,21 @@ export function nominate(channelId: string, title: string, userId: string): Nomi
 
   const info = db
     .prepare(
-      `INSERT INTO nominations (channel_id, title, title_key, nominated_by, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO nominations
+         (channel_id, title, title_key, nominated_by, created_at, tmdb_id, year, poster_path, overview)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(channelId, clean, key, userId, now());
+    .run(
+      channelId,
+      clean,
+      key,
+      userId,
+      now(),
+      movie.tmdbId ?? null,
+      movie.year ?? null,
+      movie.posterPath ?? null,
+      (movie.overview ?? '').slice(0, 600) || null,
+    );
   const id = Number(info.lastInsertRowid);
 
   // Nominating implies interest — otherwise your own pick starts at zero.
@@ -120,6 +148,7 @@ export function listNominations(channelId: string, limit?: number): Nomination[]
   return db
     .prepare(
       `SELECT n.id, n.title, n.nominated_by, u.login AS nominator_login, n.created_at,
+              n.tmdb_id, n.year, n.poster_path, n.overview,
               COUNT(i.user_id) AS interest
        FROM nominations n
        JOIN users u ON u.id = n.nominated_by
@@ -162,11 +191,17 @@ export function unveto(channelId: string, nominationId: number): boolean {
 export function recentWinners(channelId: string, limit = 10) {
   return db
     .prepare(
-      `SELECT id, title, won_at FROM nominations
+      `SELECT id, title, year, poster_path, won_at FROM nominations
        WHERE channel_id = ? AND won_at IS NOT NULL
        ORDER BY won_at DESC LIMIT ?`,
     )
-    .all(channelId, limit) as { id: number; title: string; won_at: number }[];
+    .all(channelId, limit) as {
+    id: number;
+    title: string;
+    year: number | null;
+    poster_path: string | null;
+    won_at: number;
+  }[];
 }
 
 // --- polls ---------------------------------------------------------------
@@ -225,11 +260,17 @@ export function openPoll(channelId: string, durationSeconds: number, size: numbe
 export function pollOptions(channelId: string, pollId: number) {
   return db
     .prepare(
-      `SELECT o.position, n.id AS nomination_id, n.title
+      `SELECT o.position, n.id AS nomination_id, n.title, n.year, n.poster_path
        FROM poll_options o JOIN nominations n ON n.id = o.nomination_id
        WHERE o.poll_id = ? AND o.channel_id = ? ORDER BY o.position`,
     )
-    .all(pollId, channelId) as { position: number; nomination_id: number; title: string }[];
+    .all(pollId, channelId) as {
+    position: number;
+    nomination_id: number;
+    title: string;
+    year: number | null;
+    poster_path: string | null;
+  }[];
 }
 
 /** Replaces the voter's whole ballot — approval voting, so many picks per voter. */
@@ -273,7 +314,7 @@ export function myBallot(channelId: string, pollId: number, userId: string): num
 export function tally(channelId: string, pollId: number): Tally[] {
   return db
     .prepare(
-      `SELECT o.nomination_id, n.title, COUNT(b.user_id) AS approvals
+      `SELECT o.nomination_id, n.title, n.year, n.poster_path, COUNT(b.user_id) AS approvals
        FROM poll_options o
        JOIN nominations n ON n.id = o.nomination_id
        LEFT JOIN ballots b ON b.nomination_id = o.nomination_id AND b.poll_id = o.poll_id

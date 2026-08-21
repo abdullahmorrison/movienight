@@ -6,8 +6,10 @@ the same Twitch user id, so one person is one ballot either way.
 
 ## How it works
 
-**All week** — anyone nominates (`!nominate The Thing`) and adds interest to
-other people's picks. Interest only ranks the shortlist. It is not the vote.
+**All week** — anyone searches for a movie and nominates it, or types
+`!nominate The Thing` in chat. Picks come from TMDB, so every nomination has a
+poster, a year, and a stable id — which keeps The Thing (1982) and The Thing
+(2011) apart. Adding interest ranks the shortlist. It is not the vote.
 
 **On stream** — the streamer opens a poll on the top N. Approval voting: check
 *every* movie you'd be happy to watch, not just one. Timer runs out, winner locks.
@@ -32,8 +34,16 @@ Create one at https://dev.twitch.tv/console/apps. Add **both** redirect URIs:
 - `http://localhost:3000/auth/callback` — viewers signing in
 - `http://localhost:3001/callback` — the one-time bot login
 
-Put the client id and secret in `.env`. `CHANNEL_ID` is the streamer's numeric
-Twitch id; `CHANNEL_LOGIN` is their username.
+Put the client id and secret in `.env` and set `CHANNEL_LOGIN` to the streamer's
+username. Leave `CHANNEL_ID` blank — it gets looked up from the login at boot.
+
+### Movie search
+
+Get a key at https://www.themoviedb.org/settings/api (free, instant) and set
+`TMDB_API_KEY`. Both the v3 key and the v4 read token work.
+
+Without a key the app still runs — nominations fall back to plain typed titles
+with no posters.
 
 ### Chat bot
 
@@ -53,7 +63,7 @@ Set `BOT_ENABLED=false` to run the site without chat.
 
 | Path       | Who        | What |
 |------------|------------|------|
-| `/`        | viewers    | Nominate, add interest, vote |
+| `/`        | viewers    | Search and nominate, add interest, vote |
 | `/overlay` | OBS        | Live bars + timer, transparent background |
 | `/control` | streamer   | Open/close polls, veto. Built for a phone |
 
@@ -104,3 +114,5 @@ All in `.env`: `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURATION_SECONDS`
   reads the id and login, and throws the token away.
 - **Every table carries `channel_id`** even though only one channel is served.
   A second streamer is a routing change, not a data migration.
+- **Nominations dedupe on TMDB id**, falling back to a normalised title for
+  anything typed in free-form.

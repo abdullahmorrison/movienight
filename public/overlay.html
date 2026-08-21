@@ -6,41 +6,78 @@
 <style>
   :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   * { box-sizing: border-box; }
-  /* Transparent for OBS Browser Source. Add &solid=1 to preview on a background. */
+  /* Transparent for OBS Browser Source. Add ?solid=1 to preview elsewhere. */
   body { margin: 0; background: transparent; color: #fff; }
+
   .panel {
-    width: 560px; padding: 20px 22px; border-radius: 16px;
-    background: rgba(14, 12, 21, .86); border: 1px solid rgba(169, 112, 255, .35);
-    backdrop-filter: blur(8px);
-    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    width: 780px; padding: 22px 24px; border-radius: 20px;
+    background: rgba(10, 9, 16, .88);
+    border: 1px solid rgba(169, 112, 255, .3);
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    backdrop-filter: blur(10px);
   }
-  .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
-  .head h1 { font-size: 20px; margin: 0; letter-spacing: .01em; }
-  .timer { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: #c9a2ff; }
-  .timer.urgent { color: #ff8a8a; }
-  .bar { position: relative; height: 48px; border-radius: 10px; overflow: hidden;
-         background: rgba(255,255,255,.08); margin-bottom: 9px; }
-  .fill { position: absolute; inset: 0 auto 0 0; width: 0;
-          background: linear-gradient(90deg, #6f42c1, #a970ff); transition: width .5s cubic-bezier(.4,0,.2,1); }
-  .lab { position: absolute; inset: 0; display: flex; align-items: center;
-         justify-content: space-between; padding: 0 16px; font-size: 17px; font-weight: 650; }
-  .lab .n { font-variant-numeric: tabular-nums; }
-  .foot { margin-top: 12px; font-size: 15px; opacity: .75; }
-  .winner { text-align: center; padding: 10px 0 4px; }
-  .winner .k { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
-  .winner h2 { font-size: 34px; margin: 8px 0 2px; }
-  .idle { opacity: .8; font-size: 16px; }
+  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; }
+  .head h1 { font-size: 19px; margin: 0; font-weight: 750; letter-spacing: -.01em; }
+  .head code {
+    background: rgba(169,112,255,.18); border: 1px solid rgba(169,112,255,.35);
+    padding: 2px 8px; border-radius: 6px; font-size: .92em;
+  }
+  .timer { font-size: 40px; font-weight: 850; font-variant-numeric: tabular-nums; color: #c9a2ff; line-height: 1; }
+  .timer.urgent { color: #ff6b74; }
+
+  .row { display: flex; gap: 14px; }
+  .item { flex: 1; min-width: 0; }
+  .art {
+    position: relative; aspect-ratio: 2/3; border-radius: 12px; overflow: hidden;
+    background: #1e1a2c; border: 2px solid transparent; transition: border-color .4s;
+  }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .art.lead { border-color: #f5c451; }
+  .noposter {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 10px; font-weight: 700; font-size: 14px; color: #8f88a8;
+    background: linear-gradient(160deg, #241f36, #16121f);
+  }
+  .num {
+    position: absolute; top: 7px; left: 7px;
+    background: rgba(8,6,14,.85); border-radius: 7px; padding: 2px 9px;
+    font-weight: 850; font-size: 15px;
+  }
+  .n {
+    position: absolute; top: 7px; right: 7px;
+    background: rgba(8,6,14,.85); border-radius: 999px; padding: 3px 10px;
+    font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;
+  }
+  .art.lead .n { background: #f5c451; color: #2a1e00; }
+  .bar { height: 7px; background: rgba(255,255,255,.1); border-radius: 4px; margin-top: 7px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg,#5b2ea6,#a970ff);
+           border-radius: 4px; transition: width .55s cubic-bezier(.4,0,.2,1); }
+  .art.lead + .bar i { background: linear-gradient(90deg,#c99a1e,#f5c451); }
+  .cap { margin-top: 6px; font-size: 13.5px; font-weight: 600; line-height: 1.25;
+         overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .cap span { opacity: .6; font-weight: 500; }
+
+  .foot { margin-top: 15px; font-size: 15px; opacity: .72; }
+
+  .winner { display: flex; gap: 22px; align-items: center; }
+  .winner img { width: 150px; border-radius: 13px; box-shadow: 0 14px 34px rgba(0,0,0,.6); }
+  .winner .k { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #f5c451; font-weight: 800; }
+  .winner h2 { font-size: 40px; margin: 8px 0 6px; letter-spacing: -.025em; line-height: 1.05; }
+  .winner .sub { opacity: .7; font-size: 16px; }
+  .idle { opacity: .8; font-size: 16px; padding: 8px 0; }
 </style>
 </head>
 <body>
 <div class="panel" id="panel"></div>
 <script type="module">
 let state = null;
-const solid = new URLSearchParams(location.search).has('solid');
-if (solid) document.body.style.background = '#1a1626';
+if (new URLSearchParams(location.search).has('solid')) document.body.style.background = '#100d19';
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+const art = (m, size) => m.poster
+  ? `<img src="${esc(state.posterBase)}/${size}${esc(m.poster)}" alt="">`
+  : `<div class="noposter">${esc(m.title)}</div>`;
 
 function render() {
   const p = document.getElementById('panel');
@@ -49,40 +86,61 @@ function render() {
   if (state.phase === 'voting') {
     const left = state.poll.closesAt - Date.now();
     const max = Math.max(1, ...state.options.map((o) => o.approvals));
+    const lead = max > 0 ? max : -1;
     p.innerHTML = `
       <div class="head">
-        <h1>🍿 Vote — <code>!vote 1 3</code></h1>
+        <h1>🍿 Vote now — <code>!vote 1 3</code></h1>
         <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
       </div>
-      ${state.options.map((o) => `
-        <div class="bar">
-          <div class="fill" style="width:${(o.approvals / max) * 100}%"></div>
-          <div class="lab"><span>${o.position}. ${esc(o.title)}</span><span class="n">${o.approvals}</span></div>
-        </div>`).join('')}
+      <div class="row">
+        ${state.options.map((o) => `
+          <div class="item">
+            <div class="art ${o.approvals === lead ? 'lead' : ''}">
+              <span class="num">${o.position}</span>
+              <span class="n">${o.approvals}</span>
+              ${art(o, 'w342')}
+            </div>
+            <div class="bar"><i style="width:${(o.approvals / max) * 100}%"></i></div>
+            <div class="cap">${esc(o.title)} <span>${o.year ?? ''}</span></div>
+          </div>`).join('')}
+      </div>
       <div class="foot">${state.voters} voted · pick every movie you'd watch</div>`;
     return;
   }
 
   if (state.phase === 'results' && state.winner) {
-    p.innerHTML = `<div class="winner">
-      <div class="k">Tonight's movie</div>
-      <h2>${esc(state.winner.title)}</h2>
-      <div class="foot">${state.winner.approvals} approvals · ${state.voters} voters</div>
-    </div>`;
+    const w = state.winner;
+    p.innerHTML = `
+      <div class="winner">
+        ${w.poster ? `<img src="${esc(state.posterBase)}/w342${esc(w.poster)}" alt="">` : ''}
+        <div>
+          <div class="k">🏆 Tonight's movie</div>
+          <h2>${esc(w.title)}</h2>
+          <div class="sub">${w.year ? w.year + ' · ' : ''}${w.approvals} approvals from ${state.voters} voters</div>
+        </div>
+      </div>`;
     return;
   }
 
   const top = state.nominations.slice(0, state.rules.shortlistSize);
+  const max = Math.max(1, ...top.map((n) => n.interest));
   p.innerHTML = `
-    <div class="head"><h1>🍿 Nominations — <code>!nominate &lt;title&gt;</code></h1></div>
-    ${top.length
-      ? top.map((n, i) => `
-        <div class="bar">
-          <div class="fill" style="width:${(n.interest / Math.max(1, top[0].interest)) * 100}%"></div>
-          <div class="lab"><span>${i + 1}. ${esc(n.title)}</span><span class="n">${n.interest}</span></div>
-        </div>`).join('')
-      : '<div class="idle">No nominations yet — !nominate &lt;movie title&gt;</div>'}
-    <div class="foot">Top ${state.rules.shortlistSize} make Friday's ballot</div>`;
+    <div class="head"><h1>🍿 Nominations open — <code>!nominate &lt;title&gt;</code></h1></div>
+    ${top.length ? `
+      <div class="row">
+        ${top.map((n, i) => `
+          <div class="item">
+            <div class="art ${i === 0 ? 'lead' : ''}">
+              <span class="num">${i + 1}</span>
+              <span class="n">${n.interest}</span>
+              ${art(n, 'w342')}
+            </div>
+            <div class="bar"><i style="width:${(n.interest / max) * 100}%"></i></div>
+            <div class="cap">${esc(n.title)} <span>${n.year ?? ''}</span></div>
+          </div>`).join('')}
+      </div>
+      <div class="foot">Top ${state.rules.shortlistSize} make the ballot</div>`
+    : `<div class="idle">No nominations yet — type <code>!nominate &lt;movie title&gt;</code></div>`}`;
 }
 
 setInterval(() => {

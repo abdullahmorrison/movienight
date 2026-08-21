@@ -6,14 +6,21 @@ export const events = new EventEmitter();
 
 const timers = new Map<string, NodeJS.Timeout>();
 
+export type Card = {
+  title: string;
+  year: number | null;
+  poster: string | null;
+};
+
 export type Snapshot = {
   phase: 'nominating' | 'voting' | 'results';
   poll: { id: number; closesAt: number; closedAt: number | null } | null;
-  options: { position: number; nominationId: number; title: string; approvals: number }[];
-  nominations: { id: number; title: string; nominator: string; interest: number }[];
+  options: (Card & { position: number; nominationId: number; approvals: number })[];
+  nominations: (Card & { id: number; nominator: string; interest: number; overview: string | null })[];
   voters: number;
-  winner: { nominationId: number; title: string; approvals: number } | null;
+  winner: (Card & { nominationId: number; approvals: number }) | null;
   rules: typeof config.rules;
+  posterBase: string;
 };
 
 export function snapshot(channelId: string): Snapshot {
@@ -23,12 +30,26 @@ export function snapshot(channelId: string): Snapshot {
   const nominations = q.listNominations(channelId).map((n) => ({
     id: n.id,
     title: n.title,
+    year: n.year,
+    poster: n.poster_path,
+    overview: n.overview,
     nominator: n.nominator_login,
     interest: n.interest,
   }));
 
+  const posterBase = config.tmdb.imageBase;
+
   if (!poll) {
-    return { phase: 'nominating', poll: null, options: [], nominations, voters: 0, winner: null, rules: config.rules };
+    return {
+      phase: 'nominating',
+      poll: null,
+      options: [],
+      nominations,
+      voters: 0,
+      winner: null,
+      rules: config.rules,
+      posterBase,
+    };
   }
 
   const counts = new Map(q.tally(channelId, poll.id).map((t) => [t.nomination_id, t]));
@@ -36,6 +57,8 @@ export function snapshot(channelId: string): Snapshot {
     position: o.position,
     nominationId: o.nomination_id,
     title: o.title,
+    year: o.year,
+    poster: o.poster_path,
     approvals: counts.get(o.nomination_id)?.approvals ?? 0,
   }));
 
@@ -43,7 +66,15 @@ export function snapshot(channelId: string): Snapshot {
   let winner: Snapshot['winner'] = null;
   if (!isOpen && poll.winner_nomination_id) {
     const w = counts.get(poll.winner_nomination_id);
-    if (w) winner = { nominationId: w.nomination_id, title: w.title, approvals: w.approvals };
+    if (w) {
+      winner = {
+        nominationId: w.nomination_id,
+        title: w.title,
+        year: w.year,
+        poster: w.poster_path,
+        approvals: w.approvals,
+      };
+    }
   }
 
   return {
@@ -54,6 +85,7 @@ export function snapshot(channelId: string): Snapshot {
     voters: q.voterCount(channelId, poll.id),
     winner,
     rules: config.rules,
+    posterBase,
   };
 }
 

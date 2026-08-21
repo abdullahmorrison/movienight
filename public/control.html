@@ -7,16 +7,24 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   /* Built for a phone in one hand while the stream runs. */
-  .wrap { max-width: 560px; }
-  .big { width: 100%; padding: 18px; font-size: 18px; margin-bottom: 10px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-  .grid .btn { padding: 12px 4px; }
+  .wrap { max-width: 620px; }
+  .durations { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .durations .btn { padding: 15px 4px; font-size: 15px; }
+  .strip { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .strip:last-child { border-bottom: 0; }
+  .strip img { width: 44px; height: 66px; object-fit: cover; border-radius: 6px; flex: none; background: var(--surface-2); }
+  .strip .s-t { flex: 1; min-width: 0; }
+  .strip .s-t b { display: block; font-size: 15px; }
+  .strip .s-t small { color: var(--muted); font-size: 12.5px; }
+  .ph { width: 44px; height: 66px; border-radius: 6px; flex: none;
+        background: linear-gradient(160deg,#241f36,#16121f); }
+  .urls { font-size: 13px; word-break: break-all; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>🎛️ Control</h1>
+    <h1>🎛️ Control <small id="chan"></small></h1>
     <div id="auth"></div>
   </header>
   <main id="main"></main>
@@ -24,60 +32,95 @@
 
 <script type="module">
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
 let state = null;
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
 
 async function post(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body ?? {}) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? 'Failed.');
   return data;
 }
 
-function toast(m, err) { const t = $('#toast'); if (t) { t.textContent = m; t.className = err ? 'toast err' : 'toast'; } }
+function toast(m, err) {
+  const t = $('#toast');
+  if (t) { t.textContent = m; t.className = err ? 'toast err' : 'toast'; }
+}
+
+function thumb(m) {
+  return m.poster
+    ? `<img src="${esc(state.posterBase)}/w92${esc(m.poster)}" alt="" loading="lazy">`
+    : `<div class="ph"></div>`;
+}
 
 function render() {
+  $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
     ? `<span class="who">${esc(state.me.login)}</span>`
     : `<a class="btn" href="/auth/login">Sign in with Twitch</a>`;
 
-  if (!state.me) { $('#main').innerHTML = '<div class="card">Sign in with the streamer account.</div>'; return; }
-  if (!state.me.isBroadcaster) { $('#main').innerHTML = '<div class="card">Streamer only.</div>'; return; }
+  if (!state.me) { $('#main').innerHTML = '<div class="card empty">Sign in with the streamer account.</div>'; return; }
+  if (!state.me.isBroadcaster) { $('#main').innerHTML = '<div class="card empty">Streamer only.</div>'; return; }
 
   const voting = state.phase === 'voting';
-  const board = state.nominations.map((n, i) => `
-    <div class="row">
-      <span class="title"><b>${i < state.rules.shortlistSize ? '⭐ ' : ''}${esc(n.title)}</b>
-        <small>#${n.id} · ${n.interest} interest · by ${esc(n.nominator)}</small></span>
+  const shortlist = state.nominations.slice(0, state.rules.shortlistSize);
+
+  const board = state.nominations.length ? state.nominations.map((n, i) => `
+    <div class="strip">
+      ${thumb(n)}
+      <div class="s-t">
+        <b>${i < state.rules.shortlistSize ? '⭐ ' : ''}${esc(n.title)}</b>
+        <small>${n.year ? n.year + ' · ' : ''}${n.interest} interest · by ${esc(n.nominator)}</small>
+      </div>
       <button class="btn danger" data-veto="${n.id}">Veto</button>
-    </div>`).join('') || '<p class="muted">No nominations yet.</p>';
+    </div>`).join('') : '<div class="empty">No nominations yet.</div>';
 
   $('#main').innerHTML = `
     <div class="card">
       ${voting ? `
-        <span class="phase-tag">Voting open · <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></span>
-        <p class="muted">${state.voters} voted</p>
+        <div class="eyebrow"><span class="dot live"></span> Voting open ·
+          <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
+        <p class="lede">${state.voters} voted so far.</p>
         <button class="btn danger big" id="close">End poll now</button>
       ` : `
-        <span class="phase-tag">${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</span>
-        <p class="muted">Opens a poll on the top ${state.rules.shortlistSize} by interest.</p>
-        <div class="grid">
+        <div class="eyebrow"><span class="dot"></span>
+          ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
+        <p class="lede">Opens a poll on the top ${state.rules.shortlistSize} by interest:
+          <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
+        <div class="durations">
           <button class="btn ghost" data-open="120">2 min</button>
-          <button class="btn ghost" data-open="240">4 min</button>
+          <button class="btn" data-open="240">4 min</button>
           <button class="btn ghost" data-open="360">6 min</button>
         </div>
       `}
       <div class="toast" id="toast"></div>
     </div>
+
+    ${state.phase === 'results' && state.winner ? `
+      <div class="hero">
+        ${state.winner.poster ? `<img src="${esc(state.posterBase)}/w185${esc(state.winner.poster)}" alt="">` : ''}
+        <div>
+          <div class="k">🏆 Winner</div>
+          <h2>${esc(state.winner.title)}</h2>
+          <p class="muted">${state.winner.approvals} approvals · ${state.voters} voters</p>
+        </div>
+      </div>` : ''}
+
     <div class="card">
-      <span class="phase-tag">Board — veto anything you can't or won't stream</span>
+      <div class="eyebrow">The board — veto anything you can't or won't stream</div>
       ${board}
     </div>
-    <p class="muted">Overlay for OBS: <code>${location.origin}/overlay</code></p>`;
 
-  document.querySelectorAll('[data-open]').forEach((b) => {
+    <div class="card urls">
+      <div class="eyebrow">Links</div>
+      <p class="muted">OBS browser source: <code>${location.origin}/overlay</code><br>
+      Chat votes here: <code>${location.origin}/</code></p>
+    </div>`;
+
+  $$('[data-open]').forEach((b) => {
     b.onclick = async () => {
       try { await post('/api/poll/open', { durationSeconds: Number(b.dataset.open) }); toast('Poll open.'); }
       catch (e) { toast(e.message, true); }
@@ -90,9 +133,10 @@ function render() {
     catch (e) { toast(e.message, true); }
   };
 
-  document.querySelectorAll('[data-veto]').forEach((b) => {
+  $$('[data-veto]').forEach((b) => {
     b.onclick = async () => {
-      const reason = prompt('Veto reason (optional)') ?? '';
+      const reason = prompt('Veto reason (optional)');
+      if (reason === null) return;
       try { await post(`/api/veto/${b.dataset.veto}`, { reason }); }
       catch (e) { toast(e.message, true); }
     };
@@ -106,7 +150,7 @@ function connect() {
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
-    if (msg.type === 'state') { state = { ...msg.data, me: state?.me ?? null }; render(); }
+    if (msg.type === 'state') { state = { ...msg.data, channel: state?.channel, me: state?.me ?? null }; render(); }
   };
   ws.onclose = () => setTimeout(connect, 2000);
 }

@@ -4,6 +4,7 @@ import { ChatClient, type ChatMessage } from '@twurple/chat';
 import { config } from '../config.js';
 import * as q from '../db/queries.js';
 import * as poll from '../poll.js';
+import * as tmdb from '../tmdb.js';
 
 const CHANNEL = config.channel.id;
 
@@ -102,10 +103,24 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
     case 'nominate':
     case 'nom': {
       if (!arg) return void say(`@${login} usage: !nominate <movie title>`);
-      const result = q.nominate(CHANNEL, arg, userId);
+
+      // Chat gets the same poster treatment as the site: take TMDB's best match.
+      const match = await tmdb.search(arg).catch(() => []);
+      const movie: q.MovieInput = match[0]
+        ? {
+            title: match[0].title,
+            tmdbId: match[0].tmdbId,
+            year: match[0].year,
+            posterPath: match[0].posterPath,
+            overview: match[0].overview,
+          }
+        : { title: arg };
+
+      const result = q.nominate(CHANNEL, movie, userId);
       if (result.ok) {
         poll.broadcast(CHANNEL);
-        return void say(`@${login} nominated "${result.title}" (#${result.id}) 🍿`);
+        const yr = movie.year ? ` (${movie.year})` : '';
+        return void say(`@${login} nominated "${result.title}"${yr} — #${result.id} 🍿`);
       }
       if (result.reason === 'duplicate' && result.id) {
         q.addInterest(CHANNEL, result.id, userId);

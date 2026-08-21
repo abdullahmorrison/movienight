@@ -1,7 +1,20 @@
 import { config } from './config.js';
-import { createServer } from './web/server.js';
-import { startBot } from './bot/chat.js';
-import * as poll from './poll.js';
+import { resolveChannelId } from './twitch.js';
+
+// Must happen before anything imports the database: the schema seeds a row for
+// this channel, and every table keys on its id.
+try {
+  await resolveChannelId();
+} catch (err) {
+  console.error(`[twitch] could not resolve CHANNEL_LOGIN=${config.channel.login}`);
+  console.error(`         ${(err as Error).message}`);
+  console.error('         Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env, or hardcode CHANNEL_ID.');
+  process.exit(1);
+}
+
+const { createServer } = await import('./web/server.js');
+const { startBot } = await import('./bot/chat.js');
+const poll = await import('./poll.js');
 
 const server = createServer();
 

@@ -25,7 +25,11 @@ CREATE TABLE IF NOT EXISTS nominations (
   created_at    INTEGER NOT NULL,
   vetoed_at     INTEGER,
   veto_reason   TEXT,
-  won_at        INTEGER
+  won_at        INTEGER,
+  tmdb_id       INTEGER,
+  year          INTEGER,
+  poster_path   TEXT,
+  overview      TEXT
 );
 
 -- One live nomination per title per channel. Winners and vetoes drop out of
@@ -93,6 +97,17 @@ export const db = new Database(config.dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(SCHEMA);
+
+/** Adds columns to databases created before they existed. */
+function addColumn(table: string, column: string, decl: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+}
+
+addColumn('nominations', 'tmdb_id', 'INTEGER');
+addColumn('nominations', 'year', 'INTEGER');
+addColumn('nominations', 'poster_path', 'TEXT');
+addColumn('nominations', 'overview', 'TEXT');
 
 // Seed the one channel we serve.
 db.prepare(

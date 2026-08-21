@@ -25,6 +25,12 @@ export const config = {
     redirectUri: process.env.TWITCH_REDIRECT_URI ?? `http://localhost:${num('PORT', 3000)}/auth/callback`,
   },
 
+  tmdb: {
+    // Optional: without it, nominations fall back to plain typed titles.
+    apiKey: process.env.TMDB_API_KEY ?? '',
+    imageBase: process.env.TMDB_IMAGE_BASE ?? 'https://image.tmdb.org/t/p',
+  },
+
   bot: {
     enabled: process.env.BOT_ENABLED !== 'false',
     tokenFile: process.env.BOT_TOKEN_FILE ?? './bot-tokens.json',
@@ -32,8 +38,9 @@ export const config = {
 
   // Single tenant for now. Every row still carries channel_id so a second
   // channel is a routing change, not a data migration.
+  // `id` starts empty when unset and is filled in by resolveChannelId() at boot.
   channel: {
-    id: req('CHANNEL_ID'),
+    id: process.env.CHANNEL_ID ?? '',
     login: req('CHANNEL_LOGIN').toLowerCase(),
   },
 
@@ -45,4 +52,4 @@ export const config = {
   },
 
   dbPath: process.env.DB_PATH ?? './movienight.db',
-} as const;
+};
