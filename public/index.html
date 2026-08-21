@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie Night</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>🍿 Movie Night</h1>
+    <div id="auth"></div>
+  </header>
+  <main id="main"></main>
+  <p class="muted" id="cmds"></p>
+</div>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+let state = null;
+let picks = new Set();
+let dirty = false;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function clock(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? 'Something broke.');
+  return data;
+}
+
+function toast(msg, isErr) {
+  const el = $('#toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = isErr ? 'toast err' : 'toast';
+}
+
+function renderAuth() {
+  $('#auth').innerHTML = state.me
+    ? `<span class="who">${esc(state.me.login)}${state.me.isBroadcaster ? ' · streamer' : ''}</span>
+       <button class="btn ghost" id="logout">Sign out</button>`
+    : `<a class="btn" href="/auth/login">Sign in with Twitch</a>`;
+  const out = $('#logout');
+  if (out) out.onclick = async () => { await post('/auth/logout'); location.reload(); };
+}
+
+function renderVoting() {
+  const left = state.poll.closesAt - Date.now();
+  const rows = state.options.map((o) => `
+    <label class="row ${picks.has(o.nominationId) ? 'picked' : ''}">
+      <input type="checkbox" data-id="${o.nominationId}" ${picks.has(o.nominationId) ? 'checked' : ''}
+             ${state.me ? '' : 'disabled'}>
+      <span class="title"><b>${o.position}. ${esc(o.title)}</b></span>
+      <span class="count">${o.approvals}</span>
+    </label>`).join('');
+
+  return `
+  <div class="card">
+    <span class="phase-tag">Voting open · <span class="timer" id="t">${clock(left)}</span></span>
+    <p class="muted">Check <b>every</b> movie you'd be happy to watch. Not just one.</p>
+    ${rows}
+    ${state.me
+      ? `<button class="btn" id="submit" ${dirty ? '' : 'disabled'}>Submit ballot</button>
+         <span class="muted"> ${state.voters} voted</span>`
+      : `<p class="muted">Sign in with Twitch to vote — or type <code>!vote 1 3</code> in chat.</p>`}
+    <div class="toast" id="toast"></div>
+  </div>`;
+}
+
+function renderNominating() {
+  const rows = state.nominations.map((n, i) => {
+    const mine = state.myInterest.includes(n.id);
+    const shortlisted = i < state.rules.shortlistSize;
+    return `
+    <div class="row ${mine ? 'picked' : ''}">
+      <span class="title">
+        <b>${shortlisted ? '⭐ ' : ''}${esc(n.title)}</b>
+        <small>#${n.id} · by ${esc(n.nominator)}</small>
+      </span>
+      <span class="count">${n.interest}</span>
+      <button class="btn ${mine ? 'ghost' : ''}" data-interest="${n.id}" ${state.me ? '' : 'disabled'}>
+        ${mine ? 'Interested ✓' : '+ Interest'}
+      </button>
+    </div>`;
+  }).join('') || '<p class="muted">Nothing nominated yet. Be first.</p>';
+
+  return `
+  <div class="card">
+    <span class="phase-tag">Nominations open</span>
+    <p class="muted">
+      Interest only ranks the shortlist — the top ${state.rules.shortlistSize} ⭐ make Friday's ballot.
+      <b>This is not the vote.</b> The streamer opens the real poll on stream.
+    </p>
+    ${state.me ? `
+      <div class="form-row" style="margin:14px 0">
+        <input type="text" id="title" placeholder="Nominate a movie…" maxlength="120">
+        <button class="btn" id="nominate">Add</button>
+      </div>
+      <p class="muted">Max ${state.rules.nominationsPerUser} live nominations each.</p>
+    ` : `<p class="muted">Sign in to nominate, or <code>!nominate The Thing</code> in chat.</p>`}
+    <div class="toast" id="toast"></div>
+    ${rows}
+  </div>`;
+}
+
+function renderResults() {
+  const w = state.winner;
+  const board = state.options.map((o) => {
+    const max = Math.max(1, ...state.options.map((x) => x.approvals));
+    return `<div class="bar-wrap"><div class="bar-bg">
+      <div class="bar-fill" style="width:${(o.approvals / max) * 100}%"></div>
+      <div class="bar-label"><span>${esc(o.title)}</span><span>${o.approvals}</span></div>
+    </div></div>`;
+  }).join('');
+
+  return `
+  <div class="card winner">
+    <span class="phase-tag">Tonight's movie</span>
+    <h2>${w ? esc(w.title) : 'No votes cast'}</h2>
+    <p class="muted">${w ? `${w.approvals} approvals from ${state.voters} voters` : ''}</p>
+  </div>
+  <div class="card">${board}</div>
+  ${renderNominating()}`;
+}
+
+function render() {
+  renderAuth();
+  $('#main').innerHTML =
+    state.phase === 'voting' ? renderVoting()
+    : state.phase === 'results' ? renderResults()
+    : renderNominating();
+
+  $('#cmds').innerHTML = state.phase === 'voting'
+    ? 'In chat: <code>!vote 1 3</code>'
+    : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code>';
+
+  const nom = $('#nominate');
+  if (nom) {
+    const go = async () => {
+      const title = $('#title').value.trim();
+      if (!title) return;
+      try {
+        const r = await post('/api/nominate', { title });
+        $('#title').value = '';
+        toast(r.merged ? r.message : `Nominated "${r.title}"`, false);
+      } catch (e) { toast(e.message, true); }
+    };
+    nom.onclick = go;
+    $('#title').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  }
+
+  document.querySelectorAll('[data-interest]').forEach((b) => {
+    b.onclick = async () => {
+      try { await post(`/api/interest/${b.dataset.interest}`); }
+      catch (e) { toast(e.message, true); }
+    };
+  });
+
+  document.querySelectorAll('input[type=checkbox][data-id]').forEach((c) => {
+    c.onchange = () => {
+      const id = Number(c.dataset.id);
+      c.checked ? picks.add(id) : picks.delete(id);
+      dirty = true;
+      c.closest('.row').classList.toggle('picked', c.checked);
+      const s = $('#submit');
+      if (s) s.disabled = false;
+    };
+  });
+
+  const submit = $('#submit');
+  if (submit) {
+    submit.onclick = async () => {
+      try {
+        await post('/api/vote', { nominationIds: [...picks] });
+        dirty = false;
+        submit.disabled = true;
+        toast('Ballot locked in. Change it any time before the timer ends.', false);
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+}
+
+function apply(next) {
+  const pollChanged = next.poll?.id !== state?.poll?.id;
+  state = next;
+  // Don't clobber checkboxes the user is mid-edit on.
+  if (pollChanged || !dirty) picks = new Set(next.myBallot ?? []);
+  render();
+}
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    // The socket carries no session, so keep our authenticated fields.
+    if (msg.type === 'state') apply({ ...msg.data, me: state?.me ?? null, myInterest: state?.myInterest ?? [], myBallot: state?.myBallot ?? [] });
+  };
+  ws.onclose = () => setTimeout(connect, 2000);
+}
+
+async function refresh() {
+  const res = await fetch('/api/state');
+  apply(await res.json());
+}
+
+setInterval(() => {
+  const t = $('#t');
+  if (t && state?.poll) t.textContent = clock(state.poll.closesAt - Date.now());
+}, 250);
+
+// Poll /api/state periodically so session-scoped fields stay right.
+setInterval(refresh, 15000);
+await refresh();
+connect();
+</script>
+</body>
+</html>

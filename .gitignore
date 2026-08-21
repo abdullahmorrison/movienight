@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+bot-tokens.json
+*.db
+*.db-shm
+*.db-wal
+backups/

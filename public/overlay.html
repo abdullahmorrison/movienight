@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Movie Night · Overlay</title>
+<style>
+  :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  * { box-sizing: border-box; }
+  /* Transparent for OBS Browser Source. Add &solid=1 to preview on a background. */
+  body { margin: 0; background: transparent; color: #fff; }
+  .panel {
+    width: 560px; padding: 20px 22px; border-radius: 16px;
+    background: rgba(14, 12, 21, .86); border: 1px solid rgba(169, 112, 255, .35);
+    backdrop-filter: blur(8px);
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+  }
+  .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .head h1 { font-size: 20px; margin: 0; letter-spacing: .01em; }
+  .timer { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; color: #c9a2ff; }
+  .timer.urgent { color: #ff8a8a; }
+  .bar { position: relative; height: 48px; border-radius: 10px; overflow: hidden;
+         background: rgba(255,255,255,.08); margin-bottom: 9px; }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0;
+          background: linear-gradient(90deg, #6f42c1, #a970ff); transition: width .5s cubic-bezier(.4,0,.2,1); }
+  .lab { position: absolute; inset: 0; display: flex; align-items: center;
+         justify-content: space-between; padding: 0 16px; font-size: 17px; font-weight: 650; }
+  .lab .n { font-variant-numeric: tabular-nums; }
+  .foot { margin-top: 12px; font-size: 15px; opacity: .75; }
+  .winner { text-align: center; padding: 10px 0 4px; }
+  .winner .k { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+  .winner h2 { font-size: 34px; margin: 8px 0 2px; }
+  .idle { opacity: .8; font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="panel" id="panel"></div>
+<script type="module">
+let state = null;
+const solid = new URLSearchParams(location.search).has('solid');
+if (solid) document.body.style.background = '#1a1626';
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clock = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+function render() {
+  const p = document.getElementById('panel');
+  if (!state) return;
+
+  if (state.phase === 'voting') {
+    const left = state.poll.closesAt - Date.now();
+    const max = Math.max(1, ...state.options.map((o) => o.approvals));
+    p.innerHTML = `
+      <div class="head">
+        <h1>🍿 Vote — <code>!vote 1 3</code></h1>
+        <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
+      </div>
+      ${state.options.map((o) => `
+        <div class="bar">
+          <div class="fill" style="width:${(o.approvals / max) * 100}%"></div>
+          <div class="lab"><span>${o.position}. ${esc(o.title)}</span><span class="n">${o.approvals}</span></div>
+        </div>`).join('')}
+      <div class="foot">${state.voters} voted · pick every movie you'd watch</div>`;
+    return;
+  }
+
+  if (state.phase === 'results' && state.winner) {
+    p.innerHTML = `<div class="winner">
+      <div class="k">Tonight's movie</div>
+      <h2>${esc(state.winner.title)}</h2>
+      <div class="foot">${state.winner.approvals} approvals · ${state.voters} voters</div>
+    </div>`;
+    return;
+  }
+
+  const top = state.nominations.slice(0, state.rules.shortlistSize);
+  p.innerHTML = `
+    <div class="head"><h1>🍿 Nominations — <code>!nominate &lt;title&gt;</code></h1></div>
+    ${top.length
+      ? top.map((n, i) => `
+        <div class="bar">
+          <div class="fill" style="width:${(n.interest / Math.max(1, top[0].interest)) * 100}%"></div>
+          <div class="lab"><span>${i + 1}. ${esc(n.title)}</span><span class="n">${n.interest}</span></div>
+        </div>`).join('')
+      : '<div class="idle">No nominations yet — !nominate &lt;movie title&gt;</div>'}
+    <div class="foot">Top ${state.rules.shortlistSize} make Friday's ballot</div>`;
+}
+
+setInterval(() => {
+  const t = document.getElementById('t');
+  if (t && state?.poll) {
+    const left = state.poll.closesAt - Date.now();
+    t.textContent = clock(left);
+    t.classList.toggle('urgent', left < 30000);
+  }
+}, 250);
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'state') { state = msg.data; render(); }
+  };
+  ws.onclose = () => setTimeout(connect, 2000);
+}
+
+state = await (await fetch('/api/state')).json();
+render();
+connect();
+</script>
+</body>
+</html>
