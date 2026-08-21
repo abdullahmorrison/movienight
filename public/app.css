@@ -318,39 +318,6 @@ header.top h1 small {
 }
 .live-bar .spacer { flex: 1; }
 
-/* ---------- movie details ---------- */
-
-.info {
-  position: absolute; top: 7px; right: 7px; z-index: 3;
-  width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35);
-  background: rgba(0,0,0,.72); color: #fff; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 800; font-family: Georgia, serif; padding: 0;
-}
-.info:hover { background: rgba(0,0,0,.95); border-color: #fff; }
-
-.sheet.wide { max-width: 660px; padding: 0; text-align: left; overflow: hidden; }
-.detail-art { position: relative; aspect-ratio: 16 / 7; background: var(--surface-2); }
-.detail-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.detail-art::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(0deg, var(--surface) 2%, rgba(24,24,24,.25) 55%, rgba(24,24,24,0) 100%);
-}
-.detail-art .heading {
-  position: absolute; z-index: 1; left: 26px; right: 26px; bottom: 16px;
-}
-.detail-art .heading h3 {
-  margin: 0; font-size: clamp(22px, 4vw, 32px); font-weight: 900;
-  letter-spacing: -.025em; line-height: 1.05; text-shadow: 0 2px 14px rgba(0,0,0,.7);
-}
-.detail-art .heading .yr { color: var(--muted); font-size: 14px; font-weight: 600; }
-.detail-body { padding: 4px 26px 24px; }
-.detail-body p.syn { color: #d2d2d2; font-size: 14.5px; margin: 12px 0 16px; }
-.detail-body .who { display: block; margin: 0 0 16px; font-size: 13px; }
-.detail-body .cta { display: flex; gap: 9px; flex-wrap: wrap; }
-.detail-body .cta .btn { width: auto; flex: 0 0 auto; padding: 11px 18px; }
-.sheet.wide .dismiss { margin: 14px 0 0; }
-
 /* ---------- sign-in prompt ---------- */
 
 .modal[hidden] { display: none; }
@@ -400,4 +367,66 @@ header.top h1 small {
 code {
   background: rgba(255,255,255,.1); padding: 2px 6px; border-radius: 3px;
   font-size: .9em; font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ---------- movie details ---------- */
+/* Scoped under .modal so these beat the generic .sheet rules above. */
+
+.modal .sheet.wide {
+  max-width: 720px; padding: 0; text-align: left;
+  overflow: hidden; background: var(--surface);
+}
+
+.detail-art { position: relative; aspect-ratio: 16 / 9; background: var(--surface-2); }
+.detail-art > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-art::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(0deg, var(--surface) 1%, rgba(24,24,24,.55) 30%, rgba(24,24,24,0) 62%),
+    linear-gradient(90deg, rgba(24,24,24,.75) 0%, rgba(24,24,24,0) 55%);
+}
+.detail-art .heading {
+  position: absolute; z-index: 2; left: 34px; right: 34px; bottom: 26px;
+}
+.detail-art .heading h3 {
+  margin: 0 0 16px; font-size: clamp(26px, 4.6vw, 42px); font-weight: 900;
+  letter-spacing: -.03em; line-height: 1.02; text-shadow: 0 3px 18px rgba(0,0,0,.75);
+}
+.detail-art .cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* Netflix-style round secondary controls next to a solid primary. */
+.icon-btn {
+  width: 42px; height: 42px; border-radius: 50%; flex: none; cursor: pointer;
+  border: 2px solid rgba(255,255,255,.5); background: rgba(42,42,42,.6);
+  color: #fff; font-size: 19px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .12s, background .12s;
+}
+.icon-btn:hover { border-color: #fff; background: rgba(60,60,60,.8); }
+.icon-btn.on { background: var(--accent); border-color: var(--accent); }
+
+.detail-close {
+  position: absolute; top: 16px; right: 16px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(10,10,10,.75); color: #fff; font-size: 19px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.detail-close:hover { background: #000; }
+
+.detail-body { padding: 6px 34px 30px; }
+.detail-meta {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  font-size: 13.5px; color: var(--muted); margin-bottom: 14px;
+}
+.detail-meta .yr { color: var(--text); font-weight: 700; }
+.detail-meta .pip {
+  border: 1px solid var(--line); border-radius: 3px; padding: 1px 7px; font-size: 12px;
+}
+.detail-meta b { color: var(--text); }
+.detail-body p.syn { color: #d2d2d2; font-size: 15px; line-height: 1.55; margin: 0; }
+.detail-body p.syn.none { color: var(--dim); font-style: italic; }
+
+@media (max-width: 560px) {
+  .detail-art .heading { left: 20px; right: 20px; bottom: 18px; }
+  .detail-body { padding: 6px 20px 24px; }
 }

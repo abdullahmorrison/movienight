@@ -166,31 +166,41 @@ function openDetail(id) {
   const votes = m.approvals ?? null;
   const mine = state.myInterest.includes(id);
 
+  const wantLabel = mine ? '✓ Want it' : '+ Want it';
+  const voting = state.phase === 'voting';
+  const onBallot = picks.has(id);
+
   $('#detail-sheet').innerHTML = `
     <div class="detail-art">
       ${back ? `<img src="${esc(back)}" alt="">` : ''}
+      <button class="detail-close" id="detail-close" aria-label="Close">&times;</button>
       <div class="heading">
         <h3 id="detail-title">${esc(m.title)}</h3>
-        <span class="yr">${m.year ?? ''}</span>
+        <div class="cta">
+          ${m.trailer
+            ? `<a class="btn" href="https://www.youtube.com/watch?v=${esc(m.trailer)}"
+                 target="_blank" rel="noopener noreferrer">▶ Trailer</a>`
+            : ''}
+          ${voting
+            ? `<button class="icon-btn ${onBallot ? 'on' : ''}" data-detail-vote="${id}"
+                 title="${onBallot ? 'Remove from your vote' : `Vote for this (!vote ${m.position})`}"
+                 aria-label="${onBallot ? 'Remove from your vote' : 'Vote for this'}">${onBallot ? '✓' : '+'}</button>`
+            : `<button class="icon-btn ${mine ? 'on' : ''}" data-detail-want="${id}"
+                 title="${wantLabel}" aria-label="${wantLabel}">${mine ? '✓' : '+'}</button>`}
+        </div>
       </div>
     </div>
     <div class="detail-body">
-      ${m.overview ? `<p class="syn">${esc(m.overview)}</p>` : '<p class="syn muted">No synopsis on file.</p>'}
-      <span class="who muted">
-        ${m.nominator ? `Nominated by ${esc(m.nominator)}` : ''}
-        ${wants !== null ? `${m.nominator ? ' · ' : ''}<b>${wants}</b> ${wants === 1 ? 'person wants' : 'people want'} this` : ''}
-        ${votes !== null ? `${m.nominator ? ' · ' : ''}<b>${votes}</b> ${votes === 1 ? 'vote' : 'votes'} so far` : ''}
-      </span>
-      <div class="cta">
-        ${m.trailer ? `<a class="btn" href="https://www.youtube.com/watch?v=${esc(m.trailer)}"
-           target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
-        ${state.phase === 'voting'
-          ? `<button class="btn ${picks.has(id) ? 'grey' : 'cta'}" data-detail-vote="${id}">
-               ${picks.has(id) ? '✓ On your ballot' : `Add to ballot (!vote ${m.position})`}</button>`
-          : `<button class="btn ${mine ? 'grey' : ''}" data-detail-want="${id}">
-               ${mine ? '✓ Want it' : '+ Want it'}</button>`}
+      <div class="detail-meta">
+        ${m.year ? `<span class="yr">${m.year}</span>` : ''}
+        ${voting && m.position ? `<span class="pip">!vote ${m.position}</span>` : ''}
+        ${wants !== null ? `<span><b>${wants}</b> ${wants === 1 ? 'person wants' : 'people want'} this</span>` : ''}
+        ${votes !== null ? `<span><b>${votes}</b> ${votes === 1 ? 'vote' : 'votes'} so far</span>` : ''}
+        ${m.nominator ? `<span>Nominated by ${esc(m.nominator)}</span>` : ''}
       </div>
-      <button class="dismiss" id="detail-close">Close</button>
+      ${m.overview
+        ? `<p class="syn">${esc(m.overview)}</p>`
+        : '<p class="syn none">No synopsis on file for this one.</p>'}
     </div>`;
 
   $('#detail').hidden = false;
@@ -198,7 +208,7 @@ function openDetail(id) {
 
   const want = $('[data-detail-want]');
   if (want) want.onclick = async () => {
-    if (!allowed('This marks what you want on the ballot — the vote itself happens live on stream.')) return;
+    if (!allowed('This marks what you want put up for vote — the vote itself happens live on stream.')) return;
     try { await post(`/api/interest/${id}`); await refresh(); openDetail(id); }
     catch (e) { toast(e.message, true); }
   };
@@ -225,8 +235,8 @@ function steps() {
         <span class="n">1</span>
         <span class="txt">
           <b>Nominate what you want${voting ? '' : '<span class="now">You are here</span>'}</b>
-          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the ballot.
-            <strong>This part is not the vote.</strong></small>
+          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the
+            choices you vote on. <strong>This part is not the vote.</strong></small>
         </span>
       </div>
       <div class="step ${voting ? 'on' : ''}">
@@ -250,7 +260,7 @@ function nomTile(n, i) {
     <div class="tile ${mine ? 'mine' : ''}">
       <div class="poster" role="button" tabindex="0" data-detail="${n.id}"
            title="More about ${esc(n.title)}">
-        ${shortlisted ? '<span class="flag">On the ballot</span>' : ''}
+        ${shortlisted ? '<span class="flag">Up for vote</span>' : ''}
         ${posterEl(n)}
         <div class="meta">
           <b>${esc(n.title)}</b>
@@ -316,8 +326,8 @@ function nominateSection(withSteps = false) {
       </div>
       ${searchBox()}
       <div class="row-head">
-        <h3>On the board</h3>
-        <span class="note">Sorted by how many people want it</span>
+        <h3>Nominated so far</h3>
+        <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote</span>
       </div>
     </div>
     ${board}`;
@@ -357,7 +367,7 @@ function renderVoting() {
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <button class="btn cta" id="submit" ${state.me && !dirty ? 'disabled' : ''}>
           ${!state.me ? 'Sign in to vote'
-            : dirty ? `Submit ${picks.size} pick${picks.size === 1 ? '' : 's'}` : 'Ballot submitted'}
+            : dirty ? `Submit ${picks.size} pick${picks.size === 1 ? '' : 's'}` : 'Vote saved'}
         </button>
         <span class="muted">${state.voters} voted${state.me ? '' : ' · or type !vote 1 3 in chat'}</span>
       </div>
@@ -504,7 +514,7 @@ function render() {
   $$('[data-interest]').forEach((b) => {
     b.onclick = async (e) => {
       e.stopPropagation();
-      if (!allowed('This marks what you want on the ballot — the vote itself happens live on stream.')) return;
+      if (!allowed('This marks what you want put up for vote — the vote itself happens live on stream.')) return;
       try { await post(`/api/interest/${b.dataset.interest}`); await refresh(); }
       catch (err) { toast(err.message, true); }
     };
@@ -543,7 +553,7 @@ function render() {
       await post('/api/vote', { nominationIds: [...picks] });
       dirty = false;
       await refresh();
-      toast('Ballot locked in — change it any time before the timer ends.');
+      toast('Vote saved — change it any time before the timer runs out.');
     } catch (e) { toast(e.message, true); }
   };
 }
