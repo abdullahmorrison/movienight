@@ -62,6 +62,8 @@ export function createServer(): http.Server {
           tmdbId: found.tmdbId,
           year: found.year,
           posterPath: found.posterPath,
+          backdropPath: found.backdropPath,
+          trailerKey: found.trailerKey,
           overview: found.overview,
         };
       }

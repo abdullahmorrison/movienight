@@ -10,13 +10,16 @@ export type Card = {
   title: string;
   year: number | null;
   poster: string | null;
+  backdrop: string | null;
+  trailer: string | null;
+  overview: string | null;
 };
 
 export type Snapshot = {
   phase: 'nominating' | 'voting' | 'results';
   poll: { id: number; closesAt: number; closedAt: number | null } | null;
   options: (Card & { position: number; nominationId: number; approvals: number })[];
-  nominations: (Card & { id: number; nominator: string; interest: number; overview: string | null })[];
+  nominations: (Card & { id: number; nominator: string; interest: number })[];
   voters: number;
   winner: (Card & { nominationId: number; approvals: number }) | null;
   rules: typeof config.rules;
@@ -32,6 +35,8 @@ export function snapshot(channelId: string): Snapshot {
     title: n.title,
     year: n.year,
     poster: n.poster_path,
+    backdrop: n.backdrop_path,
+    trailer: n.trailer_key,
     overview: n.overview,
     nominator: n.nominator_login,
     interest: n.interest,
@@ -59,6 +64,9 @@ export function snapshot(channelId: string): Snapshot {
     title: o.title,
     year: o.year,
     poster: o.poster_path,
+    backdrop: o.backdrop_path,
+    trailer: o.trailer_key,
+    overview: o.overview,
     approvals: counts.get(o.nomination_id)?.approvals ?? 0,
   }));
 
@@ -72,6 +80,9 @@ export function snapshot(channelId: string): Snapshot {
         title: w.title,
         year: w.year,
         poster: w.poster_path,
+        backdrop: w.backdrop_path,
+        trailer: w.trailer_key,
+        overview: w.overview,
         approvals: w.approvals,
       };
     }

@@ -106,13 +106,18 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
 
       // Chat gets the same poster treatment as the site: take TMDB's best match.
       const match = await tmdb.search(arg).catch(() => []);
-      const movie: q.MovieInput = match[0]
+      // Search results carry no videos, so pull the full record for the trailer.
+      const full = match[0] ? await tmdb.byId(match[0].tmdbId).catch(() => null) : null;
+      const best = full ?? match[0];
+      const movie: q.MovieInput = best
         ? {
-            title: match[0].title,
-            tmdbId: match[0].tmdbId,
-            year: match[0].year,
-            posterPath: match[0].posterPath,
-            overview: match[0].overview,
+            title: best.title,
+            tmdbId: best.tmdbId,
+            year: best.year,
+            posterPath: best.posterPath,
+            backdropPath: best.backdropPath,
+            trailerKey: best.trailerKey,
+            overview: best.overview,
           }
         : { title: arg };
 
@@ -144,6 +149,14 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
         if (canErrorReply(`interest:${userId}`)) say(`@${login} no live nomination #${id}`);
       }
       return;
+    }
+
+    case 'trailer': {
+      const id = Number(arg.replace('#', ''));
+      const n = q.listNominations(CHANNEL).find((x) => x.id === id);
+      if (!n) return void say(`@${login} no live nomination #${id}`);
+      if (!n.trailer_key) return void say(`@${login} no trailer on file for "${n.title}"`);
+      return void say(`🎞️ ${n.title} — https://youtu.be/${n.trailer_key}`);
     }
 
     case 'movies':

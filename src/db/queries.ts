@@ -11,6 +11,8 @@ export type Nomination = {
   tmdb_id: number | null;
   year: number | null;
   poster_path: string | null;
+  backdrop_path: string | null;
+  trailer_key: string | null;
   overview: string | null;
 };
 
@@ -20,6 +22,9 @@ export type Tally = {
   approvals: number;
   year: number | null;
   poster_path: string | null;
+  backdrop_path: string | null;
+  trailer_key: string | null;
+  overview: string | null;
 };
 
 /** What we store about a pick, whether it came from TMDB search or a typed title. */
@@ -28,6 +33,8 @@ export type MovieInput = {
   tmdbId?: number | null;
   year?: number | null;
   posterPath?: string | null;
+  backdropPath?: string | null;
+  trailerKey?: string | null;
   overview?: string | null;
 };
 
@@ -98,8 +105,9 @@ export function nominate(channelId: string, movie: MovieInput, userId: string): 
   const info = db
     .prepare(
       `INSERT INTO nominations
-         (channel_id, title, title_key, nominated_by, created_at, tmdb_id, year, poster_path, overview)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (channel_id, title, title_key, nominated_by, created_at,
+          tmdb_id, year, poster_path, backdrop_path, trailer_key, overview)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       channelId,
@@ -110,6 +118,8 @@ export function nominate(channelId: string, movie: MovieInput, userId: string): 
       movie.tmdbId ?? null,
       movie.year ?? null,
       movie.posterPath ?? null,
+      movie.backdropPath ?? null,
+      movie.trailerKey ?? null,
       (movie.overview ?? '').slice(0, 600) || null,
     );
   const id = Number(info.lastInsertRowid);
@@ -148,7 +158,7 @@ export function listNominations(channelId: string, limit?: number): Nomination[]
   return db
     .prepare(
       `SELECT n.id, n.title, n.nominated_by, u.login AS nominator_login, n.created_at,
-              n.tmdb_id, n.year, n.poster_path, n.overview,
+              n.tmdb_id, n.year, n.poster_path, n.backdrop_path, n.trailer_key, n.overview,
               COUNT(i.user_id) AS interest
        FROM nominations n
        JOIN users u ON u.id = n.nominated_by
@@ -260,7 +270,8 @@ export function openPoll(channelId: string, durationSeconds: number, size: numbe
 export function pollOptions(channelId: string, pollId: number) {
   return db
     .prepare(
-      `SELECT o.position, n.id AS nomination_id, n.title, n.year, n.poster_path
+      `SELECT o.position, n.id AS nomination_id, n.title, n.year,
+              n.poster_path, n.backdrop_path, n.trailer_key, n.overview
        FROM poll_options o JOIN nominations n ON n.id = o.nomination_id
        WHERE o.poll_id = ? AND o.channel_id = ? ORDER BY o.position`,
     )
@@ -270,6 +281,9 @@ export function pollOptions(channelId: string, pollId: number) {
     title: string;
     year: number | null;
     poster_path: string | null;
+    backdrop_path: string | null;
+    trailer_key: string | null;
+    overview: string | null;
   }[];
 }
 
@@ -314,7 +328,8 @@ export function myBallot(channelId: string, pollId: number, userId: string): num
 export function tally(channelId: string, pollId: number): Tally[] {
   return db
     .prepare(
-      `SELECT o.nomination_id, n.title, n.year, n.poster_path, COUNT(b.user_id) AS approvals
+      `SELECT o.nomination_id, n.title, n.year, n.poster_path, n.backdrop_path,
+              n.trailer_key, n.overview, COUNT(b.user_id) AS approvals
        FROM poll_options o
        JOIN nominations n ON n.id = o.nomination_id
        LEFT JOIN ballots b ON b.nomination_id = o.nomination_id AND b.poll_id = o.poll_id

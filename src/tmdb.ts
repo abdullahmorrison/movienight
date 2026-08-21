@@ -5,6 +5,8 @@ export type Movie = {
   title: string;
   year: number | null;
   posterPath: string | null;
+  backdropPath: string | null;
+  trailerKey: string | null;
   overview: string;
   popularity: number;
 };
@@ -19,6 +21,19 @@ function authFor(url: URL): Record<string, string> {
   return {};
 }
 
+type Video = { site?: string; type?: string; key?: string; official?: boolean };
+
+/** Best available YouTube clip: an official trailer, then any trailer, then a teaser. */
+function pickTrailer(raw: Record<string, unknown>): string | null {
+  const videos = (raw.videos as { results?: Video[] } | undefined)?.results ?? [];
+  const yt = videos.filter((v) => v.site === 'YouTube' && v.key);
+  const best =
+    yt.find((v) => v.type === 'Trailer' && v.official) ??
+    yt.find((v) => v.type === 'Trailer') ??
+    yt.find((v) => v.type === 'Teaser');
+  return best?.key ?? null;
+}
+
 function normalize(raw: Record<string, unknown>): Movie {
   const date = String(raw.release_date ?? '');
   return {
@@ -26,6 +41,8 @@ function normalize(raw: Record<string, unknown>): Movie {
     title: String(raw.title ?? raw.original_title ?? 'Untitled'),
     year: date.length >= 4 ? Number(date.slice(0, 4)) : null,
     posterPath: (raw.poster_path as string | null) ?? null,
+    backdropPath: (raw.backdrop_path as string | null) ?? null,
+    trailerKey: pickTrailer(raw),
     overview: String(raw.overview ?? ''),
     popularity: Number(raw.popularity ?? 0),
   };
@@ -67,6 +84,8 @@ export async function byId(tmdbId: number): Promise<Movie | null> {
   if (!enabled()) return null;
   const url = new URL(`https://api.themoviedb.org/3/movie/${tmdbId}`);
   url.searchParams.set('language', 'en-US');
+  // One round trip for the details and the trailer.
+  url.searchParams.set('append_to_response', 'videos');
   const headers = authFor(url);
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(6000) });
   if (!res.ok) return null;

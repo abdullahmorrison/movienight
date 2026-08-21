@@ -7,27 +7,35 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   /* Built for a phone in one hand while the stream runs. */
-  .wrap { max-width: 620px; }
+  .wrap { max-width: 640px; }
+  .pad { padding: 0 16px; }
   .durations { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
   .durations .btn { padding: 15px 4px; font-size: 15px; }
-  .strip { display: flex; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
-  .strip:last-child { border-bottom: 0; }
-  .strip img { width: 44px; height: 66px; object-fit: cover; border-radius: 6px; flex: none; background: var(--surface-2); }
-  .strip .s-t { flex: 1; min-width: 0; }
-  .strip .s-t b { display: block; font-size: 15px; }
-  .strip .s-t small { color: var(--muted); font-size: 12.5px; }
-  .ph { width: 44px; height: 66px; border-radius: 6px; flex: none;
-        background: linear-gradient(160deg,#241f36,#16121f); }
-  .urls { font-size: 13px; word-break: break-all; }
+  .line { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .line:last-child { border-bottom: 0; }
+  .line img { width: 42px; height: 63px; object-fit: cover; border-radius: 3px; flex: none; background: var(--surface-2); }
+  .line .t { flex: 1; min-width: 0; }
+  .line .t b { display: block; font-size: 14.5px; }
+  .line .t small { color: var(--muted); font-size: 12px; }
+  .line .t a { color: var(--muted); font-size: 12px; text-decoration: none; border-bottom: 1px solid var(--line); }
+  .line .t a:hover { color: #fff; }
+  .ph { width: 42px; height: 63px; border-radius: 3px; flex: none;
+        background: linear-gradient(160deg,#262626,#161616); }
+  .win { display: flex; gap: 16px; align-items: center; }
+  .win img { width: 84px; border-radius: 4px; flex: none; }
+  .win h2 { margin: 4px 0; font-size: 24px; font-weight: 900; letter-spacing: -.025em; }
+  .urls code { word-break: break-all; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <h1>🎛️ Control <small id="chan"></small></h1>
+<header class="top">
+  <div class="top-inner">
+    <h1>Control <small id="chan"></small></h1>
     <div id="auth"></div>
-  </header>
-  <main id="main"></main>
+  </div>
+</header>
+<div class="wrap">
+  <main id="main" class="pad"></main>
 </div>
 
 <script type="module">
@@ -50,17 +58,15 @@ function toast(m, err) {
   if (t) { t.textContent = m; t.className = err ? 'toast err' : 'toast'; }
 }
 
-function thumb(m) {
-  return m.poster
-    ? `<img src="${esc(state.posterBase)}/w92${esc(m.poster)}" alt="" loading="lazy">`
-    : `<div class="ph"></div>`;
-}
+const thumb = (m) => m.poster
+  ? `<img src="${esc(state.posterBase)}/w92${esc(m.poster)}" alt="" loading="lazy">`
+  : `<div class="ph"></div>`;
 
 function render() {
   $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
     ? `<span class="who">${esc(state.me.login)}</span>`
-    : `<a class="btn" href="/auth/login">Sign in with Twitch</a>`;
+    : `<a class="btn red" href="/auth/login"><svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg> Sign in with Twitch</a>`;
 
   if (!state.me) { $('#main').innerHTML = '<div class="card empty">Sign in with the streamer account.</div>'; return; }
   if (!state.me.isBroadcaster) { $('#main').innerHTML = '<div class="card empty">Streamer only.</div>'; return; }
@@ -69,11 +75,13 @@ function render() {
   const shortlist = state.nominations.slice(0, state.rules.shortlistSize);
 
   const board = state.nominations.length ? state.nominations.map((n, i) => `
-    <div class="strip">
+    <div class="line">
       ${thumb(n)}
-      <div class="s-t">
-        <b>${i < state.rules.shortlistSize ? '⭐ ' : ''}${esc(n.title)}</b>
+      <div class="t">
+        <b>${i < state.rules.shortlistSize ? '★ ' : ''}${esc(n.title)}</b>
         <small>${n.year ? n.year + ' · ' : ''}${n.interest} interest · by ${esc(n.nominator)}</small>
+        ${n.trailer ? `<a href="https://www.youtube.com/watch?v=${esc(n.trailer)}"
+           target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
       </div>
       <button class="btn danger" data-veto="${n.id}">Veto</button>
     </div>`).join('') : '<div class="empty">No nominations yet.</div>';
@@ -84,26 +92,26 @@ function render() {
         <div class="eyebrow"><span class="dot live"></span> Voting open ·
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
         <p class="lede">${state.voters} voted so far.</p>
-        <button class="btn danger big" id="close">End poll now</button>
+        <button class="btn red big" id="close">End poll now</button>
       ` : `
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
         <p class="lede">Opens a poll on the top ${state.rules.shortlistSize} by interest:
           <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
         <div class="durations">
-          <button class="btn ghost" data-open="120">2 min</button>
-          <button class="btn" data-open="240">4 min</button>
-          <button class="btn ghost" data-open="360">6 min</button>
+          <button class="btn grey" data-open="120">2 min</button>
+          <button class="btn red" data-open="240">4 min</button>
+          <button class="btn grey" data-open="360">6 min</button>
         </div>
       `}
       <div class="toast" id="toast"></div>
     </div>
 
     ${state.phase === 'results' && state.winner ? `
-      <div class="hero">
+      <div class="card win">
         ${state.winner.poster ? `<img src="${esc(state.posterBase)}/w185${esc(state.winner.poster)}" alt="">` : ''}
         <div>
-          <div class="k">🏆 Winner</div>
+          <div class="eyebrow" style="margin-bottom:2px">Winner</div>
           <h2>${esc(state.winner.title)}</h2>
           <p class="muted">${state.winner.approvals} approvals · ${state.voters} voters</p>
         </div>

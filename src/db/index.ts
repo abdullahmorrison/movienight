@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS nominations (
   tmdb_id       INTEGER,
   year          INTEGER,
   poster_path   TEXT,
+  backdrop_path TEXT,
+  trailer_key   TEXT,
   overview      TEXT
 );
 
@@ -107,6 +109,8 @@ function addColumn(table: string, column: string, decl: string): void {
 addColumn('nominations', 'tmdb_id', 'INTEGER');
 addColumn('nominations', 'year', 'INTEGER');
 addColumn('nominations', 'poster_path', 'TEXT');
+addColumn('nominations', 'backdrop_path', 'TEXT');
+addColumn('nominations', 'trailer_key', 'TEXT');
 addColumn('nominations', 'overview', 'TEXT');
 
 // Seed the one channel we serve.

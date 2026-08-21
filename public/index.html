@@ -7,13 +7,15 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <h1>🍿 Movie Night <small id="chan"></small></h1>
+<header class="top">
+  <div class="top-inner">
+    <h1>Movie Night <small id="chan"></small></h1>
     <div id="auth"></div>
-  </header>
+  </div>
+</header>
+<div class="wrap">
   <main id="main"></main>
-  <p class="muted" id="cmds"></p>
+  <p class="muted pad" id="cmds"></p>
 </div>
 
 <script type="module">
@@ -24,20 +26,22 @@ let state = null;
 let picks = new Set();
 let dirty = false;
 let searchOpen = [];
-let searching = false;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+const img = (path, size) => (path ? `${state.posterBase}/${size}${path}` : null);
 
-function poster(path, size = 'w342') {
-  return path ? `${state.posterBase}/${size}${path}` : null;
-}
-
-function posterEl(m, size) {
-  const src = poster(m.poster, size);
+function posterEl(m, size = 'w342') {
+  const src = img(m.poster, size);
   return src
     ? `<img src="${esc(src)}" alt="${esc(m.title)}" loading="lazy">`
     : `<div class="noposter">${esc(m.title)}</div>`;
+}
+
+function trailerBtn(m, cls = 'trailer-link') {
+  if (!m.trailer) return '';
+  return `<a class="${cls}" href="https://www.youtube.com/watch?v=${esc(m.trailer)}"
+             target="_blank" rel="noopener noreferrer">▶ Trailer</a>`;
 }
 
 async function post(url, body) {
@@ -55,21 +59,81 @@ function toast(msg, isErr) {
   if (!isErr) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4000);
 }
 
-/* ---------- auth ---------- */
+/* ---------- header ---------- */
 
 function renderAuth() {
   $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
     ? `<span class="who">${esc(state.me.login)}${state.me.isBroadcaster ? ' · streamer' : ''}</span>
-       <button class="btn ghost" id="logout">Sign out</button>`
-    : `<a class="btn" href="/auth/login">Sign in with Twitch</a>`;
+       <button class="btn grey" id="logout">Sign out</button>`
+    : `<a class="btn red" href="/auth/login"><svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg> Sign in with Twitch</a>`;
   const out = $('#logout');
   if (out) out.onclick = async () => { await post('/auth/logout'); location.reload(); };
 }
 
-/* ---------- nominating ---------- */
+/* ---------- hero ---------- */
 
-function nominateBox() {
+function hero(m, kicker, facts, cta) {
+  const back = img(m.backdrop, 'w1280') ?? img(m.poster, 'w780');
+  return `
+  <section class="hero">
+    ${back ? `<div class="art"><img src="${esc(back)}" alt=""></div>` : '<div class="art"></div>'}
+    <div class="body">
+      <div class="k">${kicker}</div>
+      <h2>${esc(m.title)}</h2>
+      <div class="facts">${facts}</div>
+      ${m.overview ? `<p class="syn">${esc(m.overview)}</p>` : ''}
+      <div class="cta">${cta}</div>
+    </div>
+  </section>`;
+}
+
+/* ---------- tiles ---------- */
+
+function nomTile(n, i) {
+  const shortlisted = i < state.rules.shortlistSize;
+  const mine = state.myInterest.includes(n.id);
+  return `
+    <div class="tile ${mine ? 'mine' : ''}">
+      <div class="poster">
+        <span class="rank">${i + 1}</span>
+        <span class="badge ${shortlisted ? 'top' : ''}">${n.interest}</span>
+        ${posterEl(n)}
+        <div class="meta">
+          <b>${esc(n.title)}</b>
+          <small>${n.year ? n.year + ' · ' : ''}${esc(n.nominator)}</small>
+        </div>
+      </div>
+      <div class="tools">
+        <button class="btn ${mine ? 'grey' : ''}" data-interest="${n.id}" ${state.me ? '' : 'disabled'}>
+          ${mine ? '✓ Interested' : '+ Interest'}
+        </button>
+        ${trailerBtn(n)}
+      </div>
+    </div>`;
+}
+
+function ballotTile(o) {
+  const on = picks.has(o.nominationId);
+  const max = Math.max(1, ...state.options.map((x) => x.approvals));
+  return `
+    <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
+         role="checkbox" tabindex="0" aria-checked="${on}">
+      <div class="poster">
+        <span class="rank">${o.position}</span>
+        <span class="check">✓</span>
+        ${on ? '' : `<span class="badge">${o.approvals}</span>`}
+        ${posterEl(o)}
+        <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
+      </div>
+      <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
+      ${o.trailer ? `<div class="tools">${trailerBtn(o)}</div>` : ''}
+    </div>`;
+}
+
+/* ---------- sections ---------- */
+
+function searchBox() {
   if (!state.me) {
     return `<p class="lede">Sign in with Twitch to nominate, or type
       <code>!nominate The Thing</code> in chat.</p>`;
@@ -81,122 +145,93 @@ function nominateBox() {
       <span class="spin" id="spin"></span>
       <div class="results" id="results"></div>
     </div>
-    <p class="muted">Max ${state.rules.nominationsPerUser} live nominations each.</p>`;
+    <div class="toast" id="toast"></div>`;
 }
 
-function movieCard(n, i) {
-  const shortlisted = i < state.rules.shortlistSize;
-  const mine = state.myInterest.includes(n.id);
+function nominateSection() {
+  const board = state.nominations.length
+    ? `<div class="grid">${state.nominations.map(nomTile).join('')}</div>`
+    : `<div class="empty">Nothing nominated yet. Be first.</div>`;
+
   return `
-    <div class="movie ${mine ? 'mine' : ''}">
-      <div class="poster">
-        <span class="rank">${i + 1}</span>
-        <span class="badge ${shortlisted ? 'shortlist' : ''}">${shortlisted ? '⭐ ' : ''}${n.interest}</span>
-        ${posterEl(n, 'w342')}
-        <div class="meta">
-          <b>${esc(n.title)}</b>
-          <small>${n.year ? n.year + ' · ' : ''}by ${esc(n.nominator)}</small>
-        </div>
+    <div class="pad">
+      <div class="row-head">
+        <h3>Nominate a movie</h3>
+        <span class="note">Max ${state.rules.nominationsPerUser} live nominations each</span>
       </div>
-      <div class="actions">
-        <button class="btn ${mine ? 'ghost' : ''}" data-interest="${n.id}" ${state.me ? '' : 'disabled'}>
-          ${mine ? '✓ Interested' : '+ Interest'}
-        </button>
+      ${searchBox()}
+      <div class="row-head">
+        <h3>On the board</h3>
+        <span class="note">Top ${state.rules.shortlistSize} by interest make the ballot — this is not the vote</span>
       </div>
-    </div>`;
+    </div>
+    ${board}`;
 }
 
 function renderNominating() {
-  const board = state.nominations.length
-    ? `<div class="grid">${state.nominations.map(movieCard).join('')}</div>`
-    : `<div class="empty">Nothing nominated yet. Be first. 🎬</div>`;
-
-  return `
-  <div class="card">
-    <div class="eyebrow"><span class="dot"></span> Nominations open</div>
-    <p class="lede">
-      Interest ranks the shortlist — the top ${state.rules.shortlistSize} ⭐ make the ballot.
-      <b>This is not the vote.</b> The streamer opens the real poll on stream.
-    </p>
-    ${nominateBox()}
-    <div class="toast" id="toast"></div>
-  </div>
-  ${board}`;
-}
-
-/* ---------- voting ---------- */
-
-function ballotCard(o) {
-  const on = picks.has(o.nominationId);
-  const max = Math.max(1, ...state.options.map((x) => x.approvals));
-  return `
-    <div class="movie pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
-         role="checkbox" tabindex="0" aria-checked="${on}">
-      <div class="poster">
-        <span class="rank">${o.position}</span>
-        <span class="check">✓</span>
-        ${on ? '' : `<span class="badge">${o.approvals}</span>`}
-        ${posterEl(o, 'w342')}
-        <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
-      </div>
-      <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
-    </div>`;
+  const lead = state.nominations[0];
+  const head = lead
+    ? hero(lead, 'Leading the board', `<b>${lead.interest}</b> interested · nominated by ${esc(lead.nominator)}`,
+        `${trailerBtn(lead, 'btn')}
+         ${state.me ? `<button class="btn grey" data-interest="${lead.id}">
+           ${state.myInterest.includes(lead.id) ? '✓ Interested' : '+ Interest'}</button>` : ''}`)
+    : '';
+  return head + nominateSection();
 }
 
 function renderVoting() {
   const left = state.poll.closesAt - Date.now();
-  return `
-  <div class="card">
-    <div class="eyebrow">
-      <span class="dot live"></span> Voting open ·
-      <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
-    </div>
-    <p class="lede">Pick <b>every</b> movie you'd be happy to watch — not just one.
-      That's how the night ends up with something most of chat actually wants.</p>
-    <div class="grid ballot">${state.options.map(ballotCard).join('')}</div>
-    ${state.me ? `
-      <div style="display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap">
-        <button class="btn" id="submit" ${dirty ? '' : 'disabled'}>
-          ${dirty ? `Submit ${picks.size} pick${picks.size === 1 ? '' : 's'}` : 'Ballot submitted'}
-        </button>
-        <span class="muted">${state.voters} voted</span>
-      </div>`
-      : `<p class="lede" style="margin-top:16px">Sign in to vote, or type
-         <code>!vote 1 3</code> in chat.</p>`}
-    <div class="toast" id="toast"></div>
-  </div>`;
-}
+  const lead = [...state.options].sort((a, b) => b.approvals - a.approvals)[0];
+  const head = lead
+    ? hero(lead, 'Voting open now',
+        `<span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span> left · <b>${state.voters}</b> voted`,
+        trailerBtn(lead, 'btn'))
+    : '';
 
-/* ---------- results ---------- */
+  return `${head}
+    <div class="pad">
+      <div class="row-head">
+        <h3>Pick everything you'd watch</h3>
+        <span class="note">Not just one — that's how chat ends up with something most people want</span>
+      </div>
+    </div>
+    <div class="grid">${state.options.map(ballotTile).join('')}</div>
+    <div class="pad">
+      ${state.me ? `
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <button class="btn red" id="submit" ${dirty ? '' : 'disabled'}>
+            ${dirty ? `Submit ${picks.size} pick${picks.size === 1 ? '' : 's'}` : 'Ballot submitted'}
+          </button>
+          <span class="muted">${state.voters} voted</span>
+        </div>`
+        : `<p class="lede">Sign in to vote, or type <code>!vote 1 3</code> in chat.</p>`}
+      <div class="toast" id="toast"></div>
+    </div>`;
+}
 
 function renderResults() {
   const w = state.winner;
   const max = Math.max(1, ...state.options.map((x) => x.approvals));
-  const hero = w ? `
-    <div class="hero">
-      ${poster(w.poster, 'w342') ? `<img src="${esc(poster(w.poster,'w342'))}" alt="">` : ''}
-      <div>
-        <div class="k">🏆 Tonight's movie</div>
-        <h2>${esc(w.title)}${w.year ? ` <span class="muted">(${w.year})</span>` : ''}</h2>
-        <p class="muted">${w.approvals} approvals from ${state.voters} voters</p>
-      </div>
-    </div>` : `<div class="card empty">Poll closed with no votes cast.</div>`;
+  const head = w
+    ? hero(w, '🏆 Tonight’s movie',
+        `<b>${w.approvals}</b> approvals from <b>${state.voters}</b> voters${w.year ? ` · ${w.year}` : ''}`,
+        trailerBtn(w, 'btn'))
+    : `<div class="empty">Poll closed with no votes cast.</div>`;
 
   const finals = `<div class="grid">${state.options.map((o) => `
-    <div class="movie">
+    <div class="tile">
       <div class="poster">
-        <span class="badge">${o.approvals}</span>
-        ${posterEl(o, 'w342')}
+        <span class="badge ${o.nominationId === w?.nominationId ? 'top' : ''}">${o.approvals}</span>
+        ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
       <div class="tally"><i style="width:${(o.approvals / max) * 100}%"></i></div>
     </div>`).join('')}</div>`;
 
-  return `${hero}
-    <div class="card"><div class="eyebrow">Final tally</div></div>
+  return `${head}
+    <div class="pad"><div class="row-head"><h3>Final tally</h3></div></div>
     ${finals}
-    <div style="height:26px"></div>
-    ${renderNominating()}`;
+    ${nominateSection()}`;
 }
 
 /* ---------- search ---------- */
@@ -205,8 +240,7 @@ let searchTimer;
 function wireSearch() {
   const q = $('#q');
   if (!q) return;
-
-  const close = () => { searchOpen = []; $('#results').innerHTML = ''; };
+  const close = () => { searchOpen = []; const r = $('#results'); if (r) r.innerHTML = ''; };
 
   q.oninput = () => {
     clearTimeout(searchTimer);
@@ -222,30 +256,32 @@ function wireSearch() {
 }
 
 async function runSearch(term) {
-  searching = true;
-  $('#spin').textContent = '…';
+  const spin = $('#spin');
+  if (spin) spin.textContent = '…';
   try {
     const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'Search failed.');
+    const box = $('#results');
+    if (!box) return;
 
     if (data.enabled === false) {
       // No TMDB key configured — fall back to nominating the raw text.
-      searchOpen = [{ title: term, tmdbId: null, year: null, posterPath: null }];
-      $('#results').innerHTML = `
+      searchOpen = [{ title: term, tmdbId: null }];
+      box.innerHTML = `
         <button class="result" data-idx="0">
-          <div class="noposter" style="width:42px;height:63px;border-radius:5px">?</div>
+          <div class="noposter" style="width:40px;height:60px;border-radius:2px">?</div>
           <div><div class="r-t">Nominate “${esc(term)}”</div>
-          <div class="r-s">Movie search is off — this adds the title as typed.</div></div>
+          <div class="r-s">Movie search is off — adds the title as typed, with no poster.</div></div>
         </button>`;
     } else {
       searchOpen = data.results;
-      $('#results').innerHTML = searchOpen.length
+      box.innerHTML = searchOpen.length
         ? searchOpen.map((m, i) => `
           <button class="result" data-idx="${i}">
             ${m.posterPath
               ? `<img src="${esc(data.posterBase)}/w92${esc(m.posterPath)}" alt="" loading="lazy">`
-              : `<div class="noposter" style="width:42px;height:63px;border-radius:5px">?</div>`}
+              : `<div class="noposter" style="width:40px;height:60px;border-radius:2px">?</div>`}
             <div>
               <div class="r-t">${esc(m.title)} <span class="r-y">${m.year ?? ''}</span></div>
               <div class="r-s">${esc(m.overview)}</div>
@@ -259,7 +295,6 @@ async function runSearch(term) {
   } catch (e) {
     toast(e.message, true);
   } finally {
-    searching = false;
     const s = $('#spin');
     if (s) s.textContent = '';
   }
@@ -267,14 +302,14 @@ async function runSearch(term) {
 
 async function choose(movie) {
   if (!movie) return;
-  const q = $('#q');
   try {
     const r = await post('/api/nominate', { tmdbId: movie.tmdbId, title: movie.title });
+    const q = $('#q');
     if (q) q.value = '';
     searchOpen = [];
-    const results = $('#results');
-    if (results) results.innerHTML = '';
-    toast(r.merged ? r.message : `Nominated “${r.title}” 🍿`);
+    const box = $('#results');
+    if (box) box.innerHTML = '';
+    toast(r.merged ? r.message : `Nominated “${r.title}”`);
   } catch (e) {
     toast(e.message, true);
   }
@@ -291,14 +326,15 @@ function render() {
 
   $('#cmds').innerHTML = state.phase === 'voting'
     ? 'In chat: <code>!vote 1 3</code>'
-    : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code>';
+    : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code> · <code>!trailer &lt;id&gt;</code>';
 
   wireSearch();
 
   $$('[data-interest]').forEach((b) => {
-    b.onclick = async () => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
       try { await post(`/api/interest/${b.dataset.interest}`); }
-      catch (e) { toast(e.message, true); }
+      catch (err) { toast(err.message, true); }
     };
   });
 
@@ -308,8 +344,12 @@ function render() {
     dirty = true;
     render();
   };
-  $$('.movie.pick').forEach((el) => {
-    el.onclick = () => toggle(el);
+  $$('.tile.pick').forEach((el) => {
+    el.onclick = (e) => {
+      // Let the trailer link through instead of toggling the pick.
+      if (e.target.closest('a')) return;
+      toggle(el);
+    };
     el.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(el); } };
   });
 
@@ -326,15 +366,15 @@ function render() {
 
 function apply(next) {
   const pollChanged = next.poll?.id !== state?.poll?.id;
-  const wasSearching = document.activeElement?.id === 'q';
-  const term = wasSearching ? $('#q').value : null;
+  const typing = document.activeElement?.id === 'q';
+  const term = typing ? $('#q').value : null;
 
   state = next;
-  // Never clobber checkboxes someone is mid-edit on.
+  // Never clobber picks someone is mid-edit on.
   if (pollChanged || !dirty) picks = new Set(next.myBallot ?? []);
   render();
 
-  if (wasSearching) {
+  if (typing) {
     const q = $('#q');
     if (q) { q.value = term; q.focus(); }
   }

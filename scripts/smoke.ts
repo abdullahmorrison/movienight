@@ -42,6 +42,8 @@ const movie = (title: string, tmdbId: number, year: number) => ({
   tmdbId,
   year,
   posterPath: `/${tmdbId}.jpg`,
+  backdropPath: `/${tmdbId}-back.jpg`,
+  trailerKey: `yt${tmdbId}`,
   overview: `${title} (${year})`,
 });
 
@@ -107,6 +109,12 @@ const options = q.pollOptions(CH, p.id);
 check('ballot is the top N by interest', options.length, config.rules.shortlistSize);
 check('most interest is position 1', options[0]!.title, 'The Thing');
 check('posters ride along to the ballot', options[0]!.poster_path, '/1091.jpg');
+check('trailers ride along to the ballot', options[0]!.trailer_key, 'yt1091');
+check(
+  'backdrops reach the snapshot for the hero',
+  poll.snapshot(CH).options[0]!.backdrop,
+  '/1091-back.jpg',
+);
 
 // Approval voting: voters pick everything they'd watch.
 q.castBallot(CH, p.id, users.alice, [options[0]!.nomination_id, options[1]!.nomination_id], 'web');
