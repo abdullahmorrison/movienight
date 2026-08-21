@@ -70,7 +70,15 @@ header.top h1 small {
   font-size: 11px; font-weight: 700; color: var(--muted);
   letter-spacing: .16em; text-transform: uppercase;
 }
-.who { color: var(--muted); font-size: 13px; margin-right: 10px; }
+.who { color: var(--muted); font-size: 13px; }
+#auth { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.nav-link {
+  color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  transition: color .12s;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link.here { color: var(--text); }
 
 /* ---------- buttons ---------- */
 
