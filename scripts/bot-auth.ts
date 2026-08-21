@@ -4,7 +4,14 @@
  *
  *   npx tsx scripts/bot-auth.ts
  *
- * Requires http://localhost:3001/callback in your Twitch app's redirect URIs.
+ * Requires the redirect URI below in your Twitch app's redirect URIs. Defaults to
+ * http://localhost:3001/callback; override with BOT_AUTH_REDIRECT (and
+ * BOT_AUTH_PORT if you are tunnelling to a different local port) when Twitch
+ * will only accept an HTTPS URL.
+ *
+ *   BOT_AUTH_REDIRECT=https://your-tunnel.trycloudflare.com/callback \
+ *     npx tsx scripts/bot-auth.ts
+ *
  * Log in as the BOT account, not your own.
  */
 import http from 'node:http';
@@ -12,8 +19,8 @@ import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import { config } from '../src/config.js';
 
-const PORT = 3001;
-const REDIRECT = `http://localhost:${PORT}/callback`;
+const PORT = Number(process.env.BOT_AUTH_PORT ?? 3001);
+const REDIRECT = process.env.BOT_AUTH_REDIRECT ?? `http://localhost:${PORT}/callback`;
 const SCOPES = ['chat:read', 'chat:edit'];
 const state = crypto.randomBytes(12).toString('hex');
 
@@ -94,6 +101,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  console.log(`\nListening on :${PORT}, expecting Twitch to redirect to ${REDIRECT}`);
   console.log('\nLog in as the BOT account (not your own) at:\n');
   console.log(`  ${authUrl}\n`);
 });
