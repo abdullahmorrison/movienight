@@ -28,6 +28,10 @@
   <p class="muted pad" id="cmds"></p>
 </div>
 
+<div class="modal" id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="detail-title">
+  <div class="sheet wide" id="detail-sheet"></div>
+</div>
+
 <div class="modal" id="gate" hidden role="dialog" aria-modal="true" aria-labelledby="gate-title">
   <div class="sheet">
     <div class="glyph">🍿</div>
@@ -87,7 +91,13 @@ function allowed(why) {
 
 $('#gate-no').onclick = closeGate;
 $('#gate').onclick = (e) => { if (e.target.id === 'gate') closeGate(); };
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGate(); });
+$('#detail').onclick = (e) => { if (e.target.id === 'detail') closeDetail(); };
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // The sign-in prompt can open on top of the details, so close that first.
+  if (!$('#gate').hidden) return closeGate();
+  closeDetail();
+});
 
 async function post(url, body) {
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body ?? {}) });
@@ -135,6 +145,76 @@ function hero(m, kicker, facts, cta) {
   </section>`;
 }
 
+/* ---------- movie details ---------- */
+
+let detailId = null;
+
+function findMovie(id) {
+  const n = state.nominations.find((x) => x.id === id);
+  if (n) return { ...n, nominationId: n.id };
+  const o = state.options.find((x) => x.nominationId === id);
+  return o ? { ...o, id: o.nominationId } : null;
+}
+
+function openDetail(id) {
+  const m = findMovie(id);
+  if (!m) return closeDetail();
+  detailId = id;
+
+  const back = img(m.backdrop, 'w1280') ?? img(m.poster, 'w780');
+  const wants = m.interest ?? null;
+  const votes = m.approvals ?? null;
+  const mine = state.myInterest.includes(id);
+
+  $('#detail-sheet').innerHTML = `
+    <div class="detail-art">
+      ${back ? `<img src="${esc(back)}" alt="">` : ''}
+      <div class="heading">
+        <h3 id="detail-title">${esc(m.title)}</h3>
+        <span class="yr">${m.year ?? ''}</span>
+      </div>
+    </div>
+    <div class="detail-body">
+      ${m.overview ? `<p class="syn">${esc(m.overview)}</p>` : '<p class="syn muted">No synopsis on file.</p>'}
+      <span class="who muted">
+        ${m.nominator ? `Nominated by ${esc(m.nominator)}` : ''}
+        ${wants !== null ? `${m.nominator ? ' · ' : ''}<b>${wants}</b> ${wants === 1 ? 'person wants' : 'people want'} this` : ''}
+        ${votes !== null ? `${m.nominator ? ' · ' : ''}<b>${votes}</b> ${votes === 1 ? 'vote' : 'votes'} so far` : ''}
+      </span>
+      <div class="cta">
+        ${m.trailer ? `<a class="btn" href="https://www.youtube.com/watch?v=${esc(m.trailer)}"
+           target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
+        ${state.phase === 'voting'
+          ? `<button class="btn ${picks.has(id) ? 'grey' : 'cta'}" data-detail-vote="${id}">
+               ${picks.has(id) ? '✓ On your ballot' : `Add to ballot (!vote ${m.position})`}</button>`
+          : `<button class="btn ${mine ? 'grey' : ''}" data-detail-want="${id}">
+               ${mine ? '✓ Want it' : '+ Want it'}</button>`}
+      </div>
+      <button class="dismiss" id="detail-close">Close</button>
+    </div>`;
+
+  $('#detail').hidden = false;
+  $('#detail-close').onclick = closeDetail;
+
+  const want = $('[data-detail-want]');
+  if (want) want.onclick = async () => {
+    if (!allowed('This marks what you want on the ballot — the vote itself happens live on stream.')) return;
+    try { await post(`/api/interest/${id}`); await refresh(); openDetail(id); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  const vote = $('[data-detail-vote]');
+  if (vote) vote.onclick = () => {
+    if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    dirty = true;
+    render();
+    openDetail(id);
+  };
+}
+
+function closeDetail() { detailId = null; $('#detail').hidden = true; }
+
 /* ---------- how it works ---------- */
 
 function steps() {
@@ -168,7 +248,8 @@ function nomTile(n, i) {
   const mine = state.myInterest.includes(n.id);
   return `
     <div class="tile ${mine ? 'mine' : ''}">
-      <div class="poster">
+      <div class="poster" role="button" tabindex="0" data-detail="${n.id}"
+           title="More about ${esc(n.title)}">
         ${shortlisted ? '<span class="flag">On the ballot</span>' : ''}
         ${posterEl(n)}
         <div class="meta">
@@ -194,6 +275,8 @@ function ballotTile(o) {
          role="checkbox" tabindex="0" aria-checked="${on}">
       <div class="poster">
         <span class="cmd-pill">!vote ${o.position}</span>
+        <button class="info" data-detail="${o.nominationId}" title="More about ${esc(o.title)}"
+                aria-label="More about ${esc(o.title)}">i</button>
         <span class="check">✓</span>
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
@@ -241,24 +324,25 @@ function nominateSection(withSteps = false) {
 }
 
 function renderNominating() {
-  const lead = state.nominations[0];
-  const head = lead
-    ? hero(lead, 'Leading the board', `<b>${lead.interest}</b> ${lead.interest === 1 ? 'person wants' : 'people want'} this · nominated by ${esc(lead.nominator)}`,
-        `${trailerBtn(lead, 'btn')}
-         <button class="btn grey" data-interest="${lead.id}">
-           ${state.myInterest.includes(lead.id) ? '✓ Want it' : '+ Want it'}</button>`)
-    : '';
-  return head + nominateSection(true);
+  // No hero here: a full-bleed backdrop reads as "this is the movie", and
+  // during nominations nothing is decided.
+  return nominateSection(true);
 }
 
 function renderVoting() {
   const left = state.poll.closesAt - Date.now();
-  const lead = [...state.options].sort((a, b) => b.approvals - a.approvals)[0];
-  const head = lead
-    ? hero(lead, 'Voting open now',
-        `<span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span> left to vote · <b>${state.voters}</b> ${state.voters === 1 ? 'person has' : 'people have'} voted`,
-        trailerBtn(lead, 'btn'))
-    : '';
+  // Same reasoning as the board: the current leader has not won anything yet.
+  const head = `
+    <div class="pad">
+      <div class="live-bar">
+        <div>
+          <div class="k">Voting closes in</div>
+          <div class="big-timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="muted">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted</div>
+      </div>
+    </div>`;
 
   return `${head}
     <div class="pad">
@@ -292,7 +376,8 @@ function renderResults() {
 
   const finals = `<div class="grid">${state.options.map((o) => `
     <div class="tile">
-      <div class="poster">
+      <div class="poster" role="button" tabindex="0" data-detail="${o.nominationId}"
+           title="More about ${esc(o.title)}">
         ${o.nominationId === w?.nominationId ? '<span class="flag">Winner</span>' : ''}
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
@@ -425,6 +510,16 @@ function render() {
     };
   });
 
+  $$('[data-detail]').forEach((el) => {
+    const show = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      openDetail(Number(el.dataset.detail));
+    };
+    el.onclick = show;
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') show(e); };
+  });
+
   const toggle = (el) => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
     const id = Number(el.dataset.id);
@@ -467,6 +562,8 @@ function apply(next) {
     const q = $('#q');
     if (q) { q.value = term; q.focus(); }
   }
+
+  if (detailId !== null) openDetail(detailId);
 }
 
 function connect() {
