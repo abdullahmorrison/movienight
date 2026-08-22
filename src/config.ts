@@ -49,6 +49,9 @@ export const config = {
     nominationsPerUser: num('NOMINATIONS_PER_USER', 2),
     pollDurationSeconds: num('POLL_DURATION_SECONDS', 240),
     repeatLockoutWeeks: num('REPEAT_LOCKOUT_WEEKS', 12),
+    // How long the winner stays on the front page before it goes back to
+    // taking nominations for next time.
+    resultsVisibleHours: num('RESULTS_VISIBLE_HOURS', 12),
   },
 
   dbPath: process.env.DB_PATH ?? './movienight.db',

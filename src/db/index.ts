@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS polls (
   closes_at            INTEGER NOT NULL,
   closed_at            INTEGER,
   winner_nomination_id INTEGER REFERENCES nominations(id),
-  outcome              TEXT
+  outcome              TEXT,
+  dismissed_at         INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS polls_channel ON polls(channel_id, opened_at);
@@ -110,6 +111,7 @@ function addColumn(table: string, column: string, decl: string): void {
 
 addColumn('users', 'avatar_url', 'TEXT');
 addColumn('polls', 'outcome', 'TEXT');
+addColumn('polls', 'dismissed_at', 'INTEGER');
 addColumn('nominations', 'tmdb_id', 'INTEGER');
 addColumn('nominations', 'year', 'INTEGER');
 addColumn('nominations', 'poster_path', 'TEXT');

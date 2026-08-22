@@ -51,13 +51,18 @@ header.top {
 }
 header.top .top-inner {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 14px; flex-wrap: wrap;
+  gap: 12px;
+  /* Never wrap: a wrapped row falls to flex-start and reads as left-aligned
+     rather than as nav. The title truncates instead. */
+  flex-wrap: nowrap;
 }
 header.top h1 {
   font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.02em;
   display: flex; align-items: baseline; gap: 10px;
   color: var(--accent); text-transform: uppercase;
+  min-width: 0; overflow: hidden;
 }
+header.top h1 a.home { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 header.top h1 a.home {
   color: inherit; text-decoration: none;
   transition: opacity .12s;
@@ -69,9 +74,14 @@ header.top h1 a.home:focus-visible {
 header.top h1 small {
   font-size: 11px; font-weight: 700; color: var(--muted);
   letter-spacing: .16em; text-transform: uppercase;
+  white-space: nowrap;
+}
+/* The channel tag is the first thing to go when the row runs out of room. */
+@media (max-width: 780px) {
+  header.top h1 small { display: none; }
 }
 .who { color: var(--muted); font-size: 13px; }
-#auth { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#auth { display: flex; align-items: center; gap: 10px; flex: none; }
 header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 
 /* ---------- profile menu ---------- */
@@ -93,7 +103,8 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   display: flex; align-items: center; justify-content: center;
   background: var(--accent); color: #fff; font-weight: 800; font-size: 14px;
 }
-.pname { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pname { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .pname { display: none; } }
 .profile-btn .chev { width: 15px; height: 15px; flex: none; transition: transform .18s; opacity: .8; }
 .profile.open .profile-btn .chev { transform: rotate(180deg); }
 
@@ -446,6 +457,12 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 .dot.live { background: var(--warn); animation: pulse 1.5s infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
 
+button.linkish {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--muted); text-decoration: underline; text-underline-offset: 2px;
+}
+button.linkish:hover { color: var(--text); }
+
 .toast { min-height: 20px; font-size: 13.5px; color: #6ee7a0; margin-top: 10px; }
 .toast.err { color: #ff5f6d; }
 .timer { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--text); }
@@ -501,6 +518,7 @@ code {
 .detail-meta b { color: var(--text); }
 .detail-body p.syn { color: #d2d2d2; font-size: 15px; line-height: 1.55; margin: 0; }
 .detail-body p.syn.none { color: var(--dim); font-style: italic; }
+.withdraw-row { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; }
 
 @media (max-width: 560px) {
   .detail-art .heading { left: 20px; right: 20px; bottom: 18px; }

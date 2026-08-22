@@ -126,6 +126,13 @@ async function post(url, body) {
 }
 
 function toast(msg, isErr) {
+  // The results dropdown is absolutely positioned over everything below the
+  // search box, so an error under it was invisible. Close it first.
+  if (isErr) {
+    searchOpen = [];
+    const box = $('#results');
+    if (box) box.innerHTML = '';
+  }
   const el = $('#toast');
   if (!el) return;
   el.textContent = msg;
@@ -255,6 +262,17 @@ function openDetail(id) {
       ${m.overview
         ? `<p class="syn">${esc(m.overview)}</p>`
         : '<p class="syn none">No synopsis on file for this one.</p>'}
+      ${!voting && state.me && m.nominator === state.me.login
+        ? (m.usesNominatorSlot
+            ? `<p class="withdraw-row">
+                 <button class="linkish" data-withdraw="${id}">Take back this nomination</button>
+                 <span class="muted"> — it is using one of your slots</span>
+               </p>`
+            : `<p class="withdraw-row muted">
+                 Other people want this now, so it stays on the board — and it no longer
+                 uses one of your nomination slots.
+               </p>`)
+        : ''}
     </div>`;
 
   $('#detail').hidden = false;
@@ -262,6 +280,18 @@ function openDetail(id) {
 
   const want = $('[data-detail-want]');
   if (want) want.onclick = () => toggleWant(id);
+
+  const drop = $('[data-withdraw]');
+  if (drop) drop.onclick = async () => {
+    try {
+      await post(`/api/nominate/${id}/withdraw`);
+      closeDetail();
+      await refresh();
+      toast('Nomination taken back.');
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
 
   const vote = $('[data-detail-vote]');
   if (vote) vote.onclick = () => {
@@ -365,7 +395,15 @@ function searchBox() {
     <div class="toast" id="toast"></div>`;
 }
 
+/** Only the ones still using a slot — a backed nomination no longer does. */
+function myNominations() {
+  return state.me
+    ? state.nominations.filter((n) => n.nominator === state.me.login && n.usesNominatorSlot)
+    : [];
+}
+
 function nominateSection(withSteps = false) {
+  const mine = myNominations();
   const board = state.nominations.length
     ? `<div class="grid">${state.nominations.map(nomTile).join('')}</div>`
     : `<div class="empty">Nothing nominated yet. Be first.</div>`;
@@ -375,7 +413,12 @@ function nominateSection(withSteps = false) {
       ${withSteps ? steps() : ''}
       <div class="row-head">
         <h3>Nominate a movie</h3>
-        <span class="note">Max ${state.rules.nominationsPerUser} live nominations each</span>
+        <span class="note">${state.me
+          ? `${mine.length} of ${state.rules.nominationsPerUser} slots used${
+              mine.length >= state.rules.nominationsPerUser
+                ? ' — take one back, or wait for someone to want it'
+                : ''}`
+          : `Max ${state.rules.nominationsPerUser} nominations each`}</span>
       </div>
       ${searchBox()}
       <div class="row-head">

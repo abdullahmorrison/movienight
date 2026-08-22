@@ -126,6 +126,33 @@ export function createServer(): http.Server {
     res.json({ ok: true, id: result.id, title: result.title });
   });
 
+  app.post('/api/nominate/:id/withdraw', requireUser, (req, res) => {
+    if (q.getOpenPoll(CHANNEL)) {
+      res.status(409).json({ error: NOMINATIONS_CLOSED });
+      return;
+    }
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Bad id.' });
+      return;
+    }
+
+    const result = q.withdrawNomination(CHANNEL, id, req.user!.id);
+    if (result === 'ok') {
+      poll.broadcast(CHANNEL);
+      res.json({ ok: true });
+      return;
+    }
+
+    const why = {
+      missing: 'That nomination is no longer on the board.',
+      'not-yours': 'You can only take back your own nominations.',
+      backed: 'Other people want this now, so it stays on the board.',
+      'was-on-ballot': 'This has already been up for a vote, so it stays on the board.',
+    }[result];
+    res.status(409).json({ error: why });
+  });
+
   app.post('/api/interest/:id', requireUser, (req, res) => {
     if (q.getOpenPoll(CHANNEL)) {
       res.status(409).json({ error: NOMINATIONS_CLOSED });
@@ -202,6 +229,15 @@ export function createServer(): http.Server {
         Number.isFinite(seconds) && seconds > 0 ? seconds : config.rules.pollDurationSeconds,
       );
       res.json({ ok: true, pollId: p.id, closesAt: p.closes_at });
+    } catch (err) {
+      res.status(409).json({ error: (err as Error).message });
+    }
+  });
+
+  app.post('/api/poll/dismiss', requireBroadcaster, (_req, res) => {
+    try {
+      poll.dismiss(CHANNEL);
+      res.json({ ok: true });
     } catch (err) {
       res.status(409).json({ error: (err as Error).message });
     }

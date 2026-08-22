@@ -21,16 +21,34 @@ export type Snapshot = {
   tie: (Card & { nominationId: number; votes: number })[];
   poll: { id: number; closesAt: number; closedAt: number | null } | null;
   options: (Card & { position: number; nominationId: number; votes: number })[];
-  nominations: (Card & { id: number; nominator: string; interest: number })[];
+  nominations: (Card & {
+    id: number;
+    nominator: string;
+    interest: number;
+    /** False once someone other than the nominator wants it. */
+    usesNominatorSlot: boolean;
+  })[];
   voters: number;
   winner: (Card & { nominationId: number; votes: number }) | null;
   rules: typeof config.rules;
   posterBase: string;
 };
 
+/**
+ * A finished result should not headline the page all week. Once it has had its
+ * moment the page goes back to taking nominations — except after a draw, which
+ * stays up until the streamer resolves it.
+ */
+function stillWorthShowing(poll: q.Poll): boolean {
+  if (poll.status === 'open' || poll.outcome === 'tie') return true;
+  if (!poll.closed_at) return true;
+  return Date.now() - poll.closed_at < config.rules.resultsVisibleHours * 60 * 60 * 1000;
+}
+
 export function snapshot(channelId: string): Snapshot {
   const open = q.getOpenPoll(channelId);
-  const poll = open ?? q.latestPoll(channelId);
+  const last = open ?? q.latestPoll(channelId);
+  const poll = last && stillWorthShowing(last) ? last : undefined;
 
   const nominations = q.listNominations(channelId).map((n) => ({
     id: n.id,
@@ -42,6 +60,7 @@ export function snapshot(channelId: string): Snapshot {
     overview: n.overview,
     nominator: n.nominator_login,
     interest: n.interest,
+    usesNominatorSlot: n.others_interest === 0,
   }));
 
   const posterBase = config.tmdb.imageBase;
@@ -139,6 +158,16 @@ export function tiebreak(channelId: string, durationSeconds = config.rules.pollD
   const ids = q.tiedIn(channelId, last.id).map((t) => t.nomination_id);
   if (ids.length < 2) throw new Error('Nothing to break');
   return open(channelId, durationSeconds, ids);
+}
+
+/** Puts the page back to nominations without waiting for the result to age out. */
+export function dismiss(channelId: string) {
+  const last = q.mostRecentPoll(channelId);
+  if (!last) throw new Error('There is no result to clear');
+  if (last.status === 'open') throw new Error('The poll is still running');
+  if (last.outcome === 'tie') throw new Error('Settle the tie first');
+  if (!q.dismissPoll(channelId, last.id)) throw new Error('Already cleared');
+  broadcast(channelId);
 }
 
 export function settle(channelId: string, nominationId: number) {

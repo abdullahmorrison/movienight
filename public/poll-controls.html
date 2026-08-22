@@ -21,6 +21,9 @@
      centre line, since both derive their width from it. */
   :root { --content: 660px; }
   .wrap { max-width: var(--content); margin-inline: auto; }
+  /* The page title already names the channel's purpose, and this column is too
+     narrow to carry the tag as well as both nav controls on one line. */
+  header.top h1 small { display: none; }
   .durations { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
   .durations .btn { padding: 15px 4px; font-size: 15px; }
   .line { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -184,6 +187,10 @@ function render() {
       ` : `
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
+        ${state.phase === 'results' ? `
+          <p class="lede">The winner is on the front page for now. It clears itself after
+            ${state.rules.resultsVisibleHours}h, or
+            <button class="linkish" id="dismiss">clear it now</button>.</p>` : ''}
         <p class="lede">Opens a poll on the top ${state.rules.shortlistSize} by interest:
           <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
         <div class="durations">
@@ -215,6 +222,12 @@ function render() {
       <p class="muted">OBS browser source: <code>${location.origin}/overlay</code><br>
       Chat votes here: <code>${location.origin}/</code></p>
     </div>`;
+
+  const dismissBtn = $('#dismiss');
+  if (dismissBtn) dismissBtn.onclick = async () => {
+    try { await post('/api/poll/dismiss'); toast('Back to nominations.'); }
+    catch (e) { toast(e.message, true); }
+  };
 
   $$('[data-tiebreak]').forEach((b) => {
     b.onclick = async () => {

@@ -302,5 +302,99 @@ check('nominations reopen once the poll ends', Boolean(q.getOpenPoll(CH)), false
 const reopened = q.nominate(CH, movie('Predator', 106, 1987), u.c);
 check('and nominating works again', reopened.ok, true);
 
+console.log('\n— getting back to nominations —');
+
+const rp = poll.open(CH, 120);
+q.castVote(CH, rp.id, u.a, q.pollOptions(CH, rp.id)[0]!.nomination_id, 'web');
+poll.close(CH);
+check('a fresh result headlines the page', poll.snapshot(CH).phase, 'results');
+
+poll.dismiss(CH);
+check('clearing it returns to nominations', poll.snapshot(CH).phase, 'nominating');
+check('and the winner stays in the history', q.recentWinners(CH).length > 0, true);
+
+// A draw must not be cleared away — it still needs resolving.
+const dp = poll.open(CH, 120);
+const dOpts = q.pollOptions(CH, dp.id);
+q.castVote(CH, dp.id, u.a, dOpts[0]!.nomination_id, 'web');
+q.castVote(CH, dp.id, u.b, dOpts[1]!.nomination_id, 'web');
+poll.close(CH);
+let blocked = false;
+try {
+  poll.dismiss(CH);
+} catch {
+  blocked = true;
+}
+check('a tie cannot be cleared away unresolved', blocked, true);
+check('and it stays on the page', poll.snapshot(CH).phase, 'results');
+poll.settle(CH, dOpts[0]!.nomination_id);
+poll.dismiss(CH);
+check('once settled it clears', poll.snapshot(CH).phase, 'nominating');
+
+console.log('\n— taking a nomination back —');
+
+const w1 = q.nominate(CH, movie('Arrival', 329865, 2016), u.d);
+check('nominating for the withdraw test', w1.ok, true);
+const w1id = w1.ok ? w1.id : -1;
+
+check('someone else cannot take it back', q.withdrawNomination(CH, w1id, u.a), 'not-yours');
+check('the nominator can', q.withdrawNomination(CH, w1id, u.d), 'ok');
+check('and it leaves the board', q.listNominations(CH).some((n) => n.id === w1id), false);
+
+// Once other people want it, it stops being the nominator's to remove.
+const w2 = q.nominate(CH, movie('Whiplash', 244786, 2014), u.d);
+const w2id = w2.ok ? w2.id : -1;
+q.addInterest(CH, w2id, u.a);
+check('a backed nomination stays', q.withdrawNomination(CH, w2id, u.d), 'backed');
+q.toggleInterest(CH, w2id, u.a);
+check('and can be taken back once they change their mind', q.withdrawNomination(CH, w2id, u.d), 'ok');
+
+// Anything that has already faced chat on a ballot stays put.
+const w3 = q.nominate(CH, movie('Gattaca', 782, 1997), u.d);
+const w3id = w3.ok ? w3.id : -1;
+q.addInterest(CH, w3id, u.a);
+q.addInterest(CH, w3id, u.b);
+const wp = poll.open(CH, 120);
+poll.close(CH);
+// Drop the other backers so the ballot rule is what is actually being tested.
+q.toggleInterest(CH, w3id, u.a);
+q.toggleInterest(CH, w3id, u.b);
+if (q.pollOptions(CH, wp.id).some((o) => o.nomination_id === w3id)) {
+  check('one that has been on a ballot stays', q.withdrawNomination(CH, w3id, u.d), 'was-on-ballot');
+}
+poll.dismiss(CH);
+
+// Someone else backing a nomination hands the slot back on its own.
+const shareUser = '98';
+q.upsertUser(shareUser, 'sharer', 'sharer');
+const s1 = q.nominate(CH, movie('Stalker', 1398, 1979), shareUser);
+q.nominate(CH, movie('Mirror', 1420, 1975), shareUser);
+check('sharer is at the cap', q.nominate(CH, movie('Andrei Rublev', 405, 1966), shareUser).ok, false);
+q.addInterest(CH, s1.ok ? s1.id : -1, u.a);
+check(
+  'a backed nomination stops using a slot',
+  q.nominate(CH, movie('Andrei Rublev', 405, 1966), shareUser).ok,
+  true,
+);
+check(
+  'and it is still on the board',
+  q.listNominations(CH).some((n) => n.id === (s1.ok ? s1.id : -1)),
+  true,
+);
+check(
+  'flagged so the page can explain why',
+  q.listNominations(CH).find((n) => n.id === (s1.ok ? s1.id : -1))?.others_interest,
+  1,
+);
+
+// Withdrawing frees the allowance back up.
+const capUser = '99';
+q.upsertUser(capUser, 'capper', 'capper');
+const first = q.nominate(CH, movie('Rashomon', 548, 1950), capUser);
+q.nominate(CH, movie('Ikiru', 3782, 1952), capUser);
+check('at the cap', q.nominate(CH, movie('Ran', 11712, 1985), capUser).ok, false);
+q.withdrawNomination(CH, first.ok ? first.id : -1, capUser);
+check('withdrawing frees a slot', q.nominate(CH, movie('Ran', 11712, 1985), capUser).ok, true);
+
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

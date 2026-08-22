@@ -7,7 +7,9 @@ the same Twitch user id, so one person is one ballot either way.
 ## How it works
 
 **All week** — anyone searches for a movie and nominates it, or types
-`!nominate The Thing` in chat. Picks come from TMDB, so every nomination has a
+`!nominate The Thing` in chat. Each person has a small number of slots; a
+nomination stops using one the moment somebody else backs it, and an unbacked
+one can be taken back to free the slot up. Picks come from TMDB, so every nomination has a
 poster, a year, and a stable id — which keeps The Thing (1982) and The Thing
 (2011) apart. Adding interest ranks the shortlist. It is not the vote.
 
@@ -122,7 +124,7 @@ curl -s localhost:3000/api/state -H "Cookie: $(npm run -s dev-login 4242 alice)"
 ## Settings
 
 All in `.env`: `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURATION_SECONDS`,
-`REPEAT_LOCKOUT_WEEKS`.
+`REPEAT_LOCKOUT_WEEKS`, `RESULTS_VISIBLE_HOURS`.
 
 ## Notes
 

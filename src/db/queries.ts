@@ -9,6 +9,8 @@ export type Nomination = {
   nominator_login: string;
   created_at: number;
   interest: number;
+  /** Backers other than the nominator; while zero, it uses one of their slots. */
+  others_interest: number;
   tmdb_id: number | null;
   year: number | null;
   poster_path: string | null;
@@ -102,10 +104,18 @@ export function nominate(channelId: string, movie: MovieInput, userId: string): 
     return { ok: false, reason: 'locked', detail: `already won — back in ${weeksLeft}w` };
   }
 
+  // Only nominations nobody else has backed count against the allowance. Once
+  // chat wants it, it belongs to the board rather than to whoever typed it, so
+  // holding a slot hostage would leave people stuck at the cap.
   const mine = db
     .prepare(
-      `SELECT COUNT(*) AS n FROM nominations
-       WHERE channel_id = ? AND nominated_by = ? AND won_at IS NULL AND vetoed_at IS NULL`,
+      `SELECT COUNT(*) AS n FROM nominations n
+       WHERE n.channel_id = ? AND n.nominated_by = ?
+         AND n.won_at IS NULL AND n.vetoed_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM interest i
+           WHERE i.nomination_id = n.id AND i.user_id <> n.nominated_by
+         )`,
     )
     .get(channelId, userId) as { n: number };
   if (mine.n >= config.rules.nominationsPerUser) {
@@ -170,6 +180,8 @@ export function listNominations(channelId: string, limit?: number): Nomination[]
       `SELECT n.id, n.title, n.nominated_by, u.login AS nominator_login, n.created_at,
               n.tmdb_id, n.year, n.poster_path, n.backdrop_path, n.trailer_key, n.overview,
               COUNT(i.user_id) AS interest,
+              SUM(CASE WHEN i.user_id IS NOT NULL AND i.user_id <> n.nominated_by THEN 1 ELSE 0 END)
+                AS others_interest,
               COALESCE(MAX(i.created_at), n.created_at) AS reached_at
        FROM nominations n
        JOIN users u ON u.id = n.nominated_by
@@ -189,6 +201,51 @@ export function myInterest(channelId: string, userId: string): number[] {
     .prepare(`SELECT nomination_id FROM interest WHERE channel_id = ? AND user_id = ?`)
     .all(channelId, userId) as { nomination_id: number }[];
   return rows.map((r) => r.nomination_id);
+}
+
+export type WithdrawResult = 'ok' | 'missing' | 'not-yours' | 'backed' | 'was-on-ballot';
+
+/**
+ * Lets someone take back a nomination to free up their allowance. Deliberately
+ * narrow: once other people have backed it, or it has already been in front of
+ * chat on a ballot, it stops being the nominator's to remove.
+ */
+export function withdrawNomination(
+  channelId: string,
+  nominationId: number,
+  userId: string,
+): WithdrawResult {
+  const nom = db
+    .prepare(
+      `SELECT nominated_by FROM nominations
+       WHERE id = ? AND channel_id = ? AND won_at IS NULL AND vetoed_at IS NULL`,
+    )
+    .get(nominationId, channelId) as { nominated_by: string } | undefined;
+  if (!nom) return 'missing';
+  if (nom.nominated_by !== userId) return 'not-yours';
+
+  const backers = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM interest
+       WHERE channel_id = ? AND nomination_id = ? AND user_id <> ?`,
+    )
+    .get(channelId, nominationId, userId) as { n: number };
+  if (backers.n > 0) return 'backed';
+
+  const onBallot = db
+    .prepare(`SELECT 1 FROM poll_options WHERE channel_id = ? AND nomination_id = ? LIMIT 1`)
+    .get(channelId, nominationId);
+  if (onBallot) return 'was-on-ballot';
+
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM interest WHERE channel_id = ? AND nomination_id = ?`).run(
+      channelId,
+      nominationId,
+    );
+    db.prepare(`DELETE FROM nominations WHERE id = ? AND channel_id = ?`).run(nominationId, channelId);
+  });
+  tx();
+  return 'ok';
 }
 
 export function veto(channelId: string, nominationId: number, reason: string): boolean {
@@ -239,6 +296,8 @@ export type Poll = {
   winner_nomination_id: number | null;
   /** null on polls closed before outcomes were recorded. */
   outcome: 'winner' | 'tie' | 'empty' | null;
+  /** Set once the result has been cleared off the front page. */
+  dismissed_at: number | null;
 };
 
 export type CloseResult =
@@ -258,10 +317,31 @@ export function getPoll(channelId: string, pollId: number): Poll | undefined {
     | undefined;
 }
 
+/** The most recent poll, dismissed or not. */
+export function mostRecentPoll(channelId: string): Poll | undefined {
+  return db
+    .prepare(`SELECT * FROM polls WHERE channel_id = ? ORDER BY id DESC LIMIT 1`)
+    .get(channelId) as Poll | undefined;
+}
+
+/**
+ * The poll the front page should be showing. Dismissing the newest result means
+ * there is nothing to show — it must not fall through to an older one.
+ */
 export function latestPoll(channelId: string): Poll | undefined {
-  return db.prepare(`SELECT * FROM polls WHERE channel_id = ? ORDER BY id DESC LIMIT 1`).get(channelId) as
-    | Poll
-    | undefined;
+  const poll = mostRecentPoll(channelId);
+  return poll && poll.dismissed_at ? undefined : poll;
+}
+
+/** Clears a finished result off the front page, putting it back to nominations. */
+export function dismissPoll(channelId: string, pollId: number): boolean {
+  const r = db
+    .prepare(
+      `UPDATE polls SET dismissed_at = ?
+       WHERE id = ? AND channel_id = ? AND status = 'closed' AND dismissed_at IS NULL`,
+    )
+    .run(now(), pollId, channelId);
+  return r.changes > 0;
 }
 
 /**
