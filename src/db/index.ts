@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS channels (
   id            TEXT PRIMARY KEY,
   login         TEXT NOT NULL,
   display_name  TEXT,
+  show_tally    INTEGER NOT NULL DEFAULT 1,
   created_at    INTEGER NOT NULL
 );
 
@@ -104,6 +105,7 @@ function addColumn(table: string, column: string, decl: string): void {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
 }
 
+addColumn('channels', 'show_tally', 'INTEGER NOT NULL DEFAULT 1');
 addColumn('users', 'avatar_url', 'TEXT');
 addColumn('polls', 'outcome', 'TEXT');
 addColumn('polls', 'dismissed_at', 'INTEGER');

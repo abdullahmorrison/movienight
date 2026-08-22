@@ -53,6 +53,18 @@ export function titleKey(title: string): string {
     .trim();
 }
 
+/** Whether viewers see the running count while a vote is open. */
+export function showsTally(channelId: string): boolean {
+  const row = db.prepare(`SELECT show_tally FROM channels WHERE id = ?`).get(channelId) as
+    | { show_tally: number }
+    | undefined;
+  return row ? row.show_tally === 1 : true;
+}
+
+export function setShowTally(channelId: string, on: boolean): void {
+  db.prepare(`UPDATE channels SET show_tally = ? WHERE id = ?`).run(on ? 1 : 0, channelId);
+}
+
 export function upsertUser(
   id: string,
   login: string,

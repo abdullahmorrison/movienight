@@ -519,6 +519,23 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 @keyframes modal-fade { from { opacity: 0; } }
 @keyframes modal-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
 
+/* ---------- toggle ---------- */
+
+.toggle { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.toggle input {
+  appearance: none; -webkit-appearance: none; margin: 2px 0 0; flex: none;
+  width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
+  border: 2px solid var(--dim); background: transparent;
+}
+.toggle input:checked {
+  background: var(--accent); border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  background-size: 14px; background-position: center; background-repeat: no-repeat;
+}
+.toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.toggle b { display: block; font-size: 14.5px; font-weight: 700; }
+.toggle small { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+
 /* ---------- copyable link ---------- */
 
 .copy-row { display: flex; gap: 9px; align-items: stretch; }

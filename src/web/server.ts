@@ -55,7 +55,8 @@ export function createServer(): http.Server {
 
   app.get('/api/state', (req, res) => {
     if (req.user && !req.user.avatar) backfillAvatar(req.user.id, req.user.login);
-    const snap = poll.snapshot(CHANNEL);
+    // The streamer always sees the real counts, whatever viewers are shown.
+    const snap = poll.snapshot(CHANNEL, req.user?.id === CHANNEL);
     res.json({
       ...snap,
       channel: config.channel.login,
@@ -246,6 +247,17 @@ export function createServer(): http.Server {
       return;
     }
     res.json({ ok: true, ...result });
+  });
+
+  app.post('/api/settings/tally', requireBroadcaster, (req, res) => {
+    const show = (req.body as { show?: unknown }).show;
+    if (typeof show !== 'boolean') {
+      res.status(400).json({ error: 'show must be true or false.' });
+      return;
+    }
+    q.setShowTally(CHANNEL, show);
+    poll.broadcast(CHANNEL);
+    res.json({ ok: true, showTally: show });
   });
 
   app.post('/api/poll/cancel', requireBroadcaster, (_req, res) => {

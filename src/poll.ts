@@ -34,6 +34,10 @@ export type Snapshot = {
   posterBase: string;
   /** Where to send viewers who need to nominate; chat can only vote. */
   siteUrl: string;
+  /** True while viewers are being kept from the running count. */
+  tallyHidden: boolean;
+  /** The streamer's setting, shown on their own controls. */
+  showTally: boolean;
   /** Everything that has won before, newest first. */
   winners: {
     nominationId: number;
@@ -50,13 +54,20 @@ export type Snapshot = {
  * moment the page goes back to taking nominations — except after a draw, which
  * stays up until the streamer resolves it.
  */
+const isOpenPoll = (poll: q.Poll) => poll.status === 'open';
+
 function stillWorthShowing(poll: q.Poll): boolean {
   if (poll.status === 'open' || poll.outcome === 'tie') return true;
   if (!poll.closed_at) return true;
   return Date.now() - poll.closed_at < config.rules.resultsVisibleHours * 60 * 60 * 1000;
 }
 
-export function snapshot(channelId: string): Snapshot {
+/**
+ * `full` is for the streamer's own controls. Everyone else gets the counts
+ * stripped rather than merely hidden in the page: a number sent to the browser
+ * is a number anyone can read out of the websocket.
+ */
+export function snapshot(channelId: string, full = false): Snapshot {
   const open = q.getOpenPoll(channelId);
   const last = open ?? q.latestPoll(channelId);
   const poll = last && stillWorthShowing(last) ? last : undefined;
@@ -85,9 +96,13 @@ export function snapshot(channelId: string): Snapshot {
   }));
   const siteUrl = config.publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
+  const showTally = q.showsTally(channelId);
+
   if (!poll) {
     return {
       phase: 'nominating',
+      tallyHidden: false,
+      showTally,
       tie: [],
       poll: null,
       options: [],
@@ -102,6 +117,9 @@ export function snapshot(channelId: string): Snapshot {
   }
 
   const counts = new Map(q.tally(channelId, poll.id).map((t) => [t.nomination_id, t]));
+  // Only while voting: the final result is the payoff and is always shown.
+  const hide = isOpenPoll(poll) && !showTally && !full;
+
   const options = q.pollOptions(channelId, poll.id).map((o) => ({
     position: o.position,
     nominationId: o.nomination_id,
@@ -111,7 +129,7 @@ export function snapshot(channelId: string): Snapshot {
     backdrop: o.backdrop_path,
     trailer: o.trailer_key,
     overview: o.overview,
-    votes: counts.get(o.nomination_id)?.votes ?? 0,
+    votes: hide ? 0 : (counts.get(o.nomination_id)?.votes ?? 0),
   }));
 
   const isOpen = poll.status === 'open';
@@ -147,6 +165,8 @@ export function snapshot(channelId: string): Snapshot {
 
   return {
     phase: isOpen ? 'voting' : 'results',
+    tallyHidden: hide,
+    showTally,
     tie,
     poll: { id: poll.id, closesAt: poll.closes_at, closedAt: poll.closed_at },
     options,

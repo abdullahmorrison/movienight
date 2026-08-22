@@ -86,7 +86,7 @@ check('voting needs a session', (await req('POST', '/api/vote', undefined, { nom
 check('search needs a session', (await req('GET', '/api/search?q=alien')).status, 401);
 
 console.log('\n— streamer-only endpoints —');
-for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/cancel', '/api/poll/tiebreak', '/api/poll/settle', '/api/poll/dismiss']) {
+for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/cancel', '/api/poll/tiebreak', '/api/poll/settle', '/api/poll/dismiss', '/api/settings/tally']) {
   check(`${path} rejects a viewer`, (await req('POST', path, viewer)).status, 403);
   check(`${path} rejects the signed out`, (await req('POST', path, undefined)).status, 401);
 }
@@ -148,10 +148,36 @@ const afterSwitch = (await req('GET', '/api/state', viewer)).body;
 check('switching moves the vote rather than adding one', afterSwitch.voters, 1);
 check('and the page knows which one is yours', afterSwitch.myVote, optB.nominationId);
 
+console.log('\n— hiding the running tally —');
+check('viewers see counts by default', (await req('GET', '/api/state')).body.tallyHidden, false);
+check('a viewer cannot change the setting', (await req('POST', '/api/settings/tally', viewer, { show: false })).status, 403);
+check('the value must be a boolean', (await req('POST', '/api/settings/tally', streamer, { show: 'no' })).status, 400);
+check('the streamer turns it off', (await req('POST', '/api/settings/tally', streamer, { show: false })).status, 200);
+
+const hiddenPublic = (await req('GET', '/api/state')).body;
+check('viewers are told the counts are hidden', hiddenPublic.tallyHidden, true);
+// The point is that the numbers are absent, not merely unrendered.
+check('and every count is stripped from their payload',
+  (hiddenPublic.options as any[]).map((o) => o.votes), [0, 0]);
+check('turnout still shows', hiddenPublic.voters, 1);
+
+const hiddenOwner = (await req('GET', '/api/state', streamer)).body;
+check('the streamer still sees the real counts',
+  (hiddenOwner.options as any[]).reduce((n, o) => n + o.votes, 0), 1);
+
+await req('POST', '/api/settings/tally', streamer, { show: true });
+check('turning it back on restores them', (await req('GET', '/api/state')).body.tallyHidden, false);
+await req('POST', '/api/settings/tally', streamer, { show: false });
+
 console.log('\n— closing —');
 check('a tiebreaker without a tie is refused', (await req('POST', '/api/poll/tiebreak', streamer)).status, 409);
 const closed = await req('POST', '/api/poll/close', streamer);
 check('closing reports the outcome', closed.body.outcome, 'winner');
+// Hiding covers the live count only; the result itself is the payoff.
+const afterClose = (await req('GET', '/api/state')).body;
+check('the final tally is shown even with hiding on', afterClose.tallyHidden, false);
+check('with the real numbers', (afterClose.options as any[]).reduce((n, o) => n + o.votes, 0), 1);
+await req('POST', '/api/settings/tally', streamer, { show: true });
 check('closing again is refused', (await req('POST', '/api/poll/close', streamer)).status, 409);
 check('nominating works again', (await req('POST', '/api/nominate', other, { title: 'Speed' })).status, 200);
 // The winner is still up at this point: nothing that edits the board is allowed

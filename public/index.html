@@ -224,7 +224,7 @@ function openDetail(id) {
 
   const back = img(m.backdrop, 'w1280') ?? img(m.poster, 'w780');
   const wants = m.interest ?? null;
-  const votes = m.votes ?? null;
+  const votes = state.tallyHidden ? null : (m.votes ?? null);
   const mine = state.myInterest.includes(id);
 
   const wantLabel = mine ? '✓ Want it' : '+ Want it';
@@ -327,6 +327,20 @@ function nomTile(n, i) {
 function ballotTile(o) {
   const on = pick === o.nominationId;
   const max = Math.max(1, ...state.options.map((x) => x.votes));
+  if (state.tallyHidden) {
+    return `
+      <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
+           role="radio" tabindex="0" aria-checked="${on}">
+        <div class="poster">
+          <span class="cmd-pill">!vote ${o.position}</span>
+          <button class="info" data-detail="${o.nominationId}" title="More about ${esc(o.title)}"
+                  aria-label="More about ${esc(o.title)}">i</button>
+          <span class="check">✓</span>
+          ${posterEl(o)}
+          <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
+        </div>
+      </div>`;
+  }
   return `
     <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
          role="checkbox" tabindex="0" aria-checked="${on}">
@@ -459,7 +473,8 @@ function renderVoting() {
           <div class="big-timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</div>
         </div>
         <div class="spacer"></div>
-        <div class="muted">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted</div>
+        <div class="muted">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted${
+          state.tallyHidden ? '<br>Counts stay hidden until voting closes' : ''}</div>
       </div>
     </div>`;
 

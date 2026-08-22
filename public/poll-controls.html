@@ -287,6 +287,18 @@ function render() {
            </div>`}
 
     <div class="card">
+      <div class="eyebrow">While the vote runs</div>
+      <label class="toggle">
+        <input type="checkbox" id="share-tally" ${state.showTally ? 'checked' : ''}>
+        <span>
+          <b>Show the running tally to viewers</b>
+          <small>Off keeps the counts to yourself until voting closes, so nobody
+            piles onto whatever is already ahead. The final result is always shown.</small>
+        </span>
+      </label>
+    </div>
+
+    <div class="card">
       <div class="eyebrow">Put this on stream</div>
       <div class="copy-row">
         <input type="text" id="overlay-url" readonly value="${location.origin}/overlay"
@@ -305,6 +317,12 @@ function render() {
         <button class="btn grey" id="copy-site">Copy</button>
       </div>
     </div>`;
+
+  const shareBox = $('#share-tally');
+  if (shareBox) shareBox.onchange = async () => {
+    try { await post('/api/settings/tally', { show: shareBox.checked }); }
+    catch (e) { shareBox.checked = !shareBox.checked; toast(e.message, true); }
+  };
 
   wireCopy('copy-overlay', 'overlay-url');
   wireCopy('copy-site', 'site-url');
@@ -403,7 +421,9 @@ function connect() {
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
-    if (msg.type === 'state') { state = { ...msg.data, channel: state?.channel, me: state?.me ?? null }; render(); }
+    // Broadcasts carry the viewer-facing snapshot, which may have the counts
+    // stripped. The streamer's page asks for its own copy instead.
+    if (msg.type === 'state') refresh();
   };
   ws.onclose = () => setTimeout(connect, 2000);
 }

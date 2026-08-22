@@ -126,11 +126,28 @@ function render() {
   if (state.phase === 'voting') {
     const left = state.poll.closesAt - Date.now();
     const max = Math.max(0, ...state.options.map((o) => o.votes));
-    p.innerHTML = `
+    const head = `
       <div class="head">
         <h1>Voting open<span class="cmd">Type <code>!vote 2</code> in chat</span></h1>
         <span class="timer ${left < 30000 ? 'urgent' : ''}" id="t">${clock(left)}</span>
-      </div>
+      </div>`;
+
+    if (state.tallyHidden) {
+      p.innerHTML = `${head}
+        <div class="row">${state.options.map((o) => `
+          <div class="item">
+            <div class="art">
+              <span class="num">!vote ${o.position}</span>
+              ${art(o, 'w342')}
+            </div>
+            <div class="cap">${esc(o.title)} <span>${o.year ?? ''}</span></div>
+          </div>`).join('')}</div>
+        <div class="foot">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted ·
+          counts revealed when voting closes</div>`;
+      return;
+    }
+
+    p.innerHTML = `${head}
       <div class="row">${tiles(state.options, (o) => o.votes, max, ['vote', 'votes'])}</div>
       <div class="foot">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted ·
         one vote each, change it any time before the timer ends</div>`;
