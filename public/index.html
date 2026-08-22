@@ -332,28 +332,32 @@ function nomTile(n, i) {
 }
 
 function ballotTile(o) {
-  const on = pick === o.nominationId;
+  // Two separate marks. The saved vote keeps its badge until a replacement is
+  // actually submitted; a pending pick is shown as pending, not as the vote.
+  const saved = state.myVote === o.nominationId;
+  const pending = pick === o.nominationId && !saved;
   const max = Math.max(1, ...state.options.map((x) => x.votes));
-  // One template: the hidden case used to be a second copy, which is how it
-  // quietly lost the trailer button. Hiding drops the count, nothing else.
   return `
-    <div class="tile pick ${on ? 'picked' : ''}" data-id="${o.nominationId}"
-         role="radio" tabindex="0" aria-checked="${on}">
+    <div class="tile pick ${saved ? 'picked' : ''} ${pending ? 'pending' : ''}"
+         data-id="${o.nominationId}" role="radio" tabindex="0"
+         aria-checked="${pick === o.nominationId}">
       <div class="poster">
         <span class="cmd-pill">!vote ${o.position}</span>
         <button class="info" data-detail="${o.nominationId}" title="More about ${esc(o.title)}"
                 aria-label="More about ${esc(o.title)}">i</button>
-        <span class="check">✓</span>
+        ${saved ? '<span class="check">✓</span>' : ''}
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
-      ${on ? `<div class="stat mine">${unsaved() ? 'Picked — not submitted' : '✓ Your vote'}</div>` : ''}
+      ${saved ? '<div class="stat mine">✓ Your vote</div>' : ''}
+      ${pending ? '<div class="stat waiting">Picked — press Submit</div>' : ''}
       ${state.tallyHidden ? '' : `
         <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
         <div class="stat"><b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>`}
       ${o.trailer ? `<div class="tools">${trailerBtn(o)}</div>` : ''}
     </div>`;
 }
+
 
 
 /* ---------- sections ---------- */

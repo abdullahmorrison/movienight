@@ -296,11 +296,14 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 }
 .stat.win b, .stat.win { color: var(--accent); }
 .stat.mine { color: var(--accent); font-weight: 700; }
+.stat.waiting { color: var(--muted); font-weight: 700; }
 .tile.mine { outline: 1px solid rgba(255,255,255,.45); outline-offset: -1px; }
 
 /* selectable ballot tiles */
 .tile.pick { cursor: pointer; }
 .tile.picked { outline: 3px solid var(--accent); outline-offset: -1px; }
+/* Chosen but not sent: deliberately weaker than the saved vote's solid ring. */
+.tile.pending { outline: 2px dashed var(--muted); outline-offset: -1px; }
 .tile.picked .check { display: flex; }
 .check {
   display: none; position: absolute; top: 7px; right: 7px; z-index: 3;
