@@ -161,9 +161,18 @@ check('and every count is stripped from their payload',
   (hiddenPublic.options as any[]).map((o) => o.votes), [0, 0]);
 check('turnout still shows', hiddenPublic.voters, 1);
 
-const hiddenOwner = (await req('GET', '/api/state', streamer)).body;
-check('the streamer still sees the real counts',
+// The streamer on the vote page is a viewer like anyone else.
+const ownerPlain = (await req('GET', '/api/state', streamer)).body;
+check('the streamer sees the viewer page as viewers do', ownerPlain.tallyHidden, true);
+check('with the counts gone there too',
+  (ownerPlain.options as any[]).reduce((n, o) => n + o.votes, 0), 0);
+
+const hiddenOwner = (await req('GET', '/api/state?full=1', streamer)).body;
+check('the controls page still gets the real counts',
   (hiddenOwner.options as any[]).reduce((n, o) => n + o.votes, 0), 1);
+const viewerFull = (await req('GET', '/api/state?full=1', viewer)).body;
+check('and a viewer asking for them is refused', viewerFull.tallyHidden, true);
+check('getting zeros back', (viewerFull.options as any[]).reduce((n, o) => n + o.votes, 0), 0);
 
 await req('POST', '/api/settings/tally', streamer, { show: true });
 check('turning it back on restores them', (await req('GET', '/api/state')).body.tallyHidden, false);

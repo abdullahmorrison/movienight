@@ -422,7 +422,8 @@ function render() {
   });
 }
 
-async function refresh() { state = await (await fetch('/api/state')).json(); render(); }
+// full=1 asks for the real counts; the server grants it to the broadcaster only.
+async function refresh() { state = await (await fetch('/api/state?full=1')).json(); render(); }
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';

@@ -55,8 +55,12 @@ export function createServer(): http.Server {
 
   app.get('/api/state', (req, res) => {
     if (req.user && !req.user.avatar) backfillAvatar(req.user.id, req.user.login);
-    // The streamer always sees the real counts, whatever viewers are shown.
-    const snap = poll.snapshot(CHANNEL, req.user?.id === CHANNEL);
+    // Real counts are tied to the controls page, not to who is asking. The
+    // streamer opening the vote page sees exactly what viewers see — otherwise
+    // it is no use for checking what has actually been hidden, and it leaks if
+    // they ever put that page on screen.
+    const full = req.query.full === '1' && req.user?.id === CHANNEL;
+    const snap = poll.snapshot(CHANNEL, full);
     res.json({
       ...snap,
       channel: config.channel.login,
