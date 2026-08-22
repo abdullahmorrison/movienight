@@ -225,6 +225,15 @@ export function createServer(): http.Server {
     res.json({ ok: true, ...result });
   });
 
+  app.post('/api/poll/cancel', requireBroadcaster, (_req, res) => {
+    try {
+      poll.cancel(CHANNEL);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(409).json({ error: (err as Error).message });
+    }
+  });
+
   app.post('/api/poll/tiebreak', requireBroadcaster, (req, res) => {
     const seconds = Number((req.body as { durationSeconds?: unknown }).durationSeconds);
     try {

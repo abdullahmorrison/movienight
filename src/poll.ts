@@ -165,6 +165,17 @@ export function tiebreak(channelId: string, durationSeconds = config.rules.pollD
   return open(channelId, durationSeconds, ids);
 }
 
+/** Abandons a running poll without deciding anything. */
+export function cancel(channelId: string) {
+  const open = q.getOpenPoll(channelId);
+  if (!open) throw new Error('No poll is open');
+  clearTimer(channelId);
+  q.cancelPoll(channelId, open.id);
+  broadcast(channelId);
+  events.emit('cancelled', channelId, open.id);
+  return open.id;
+}
+
 /** Puts the page back to nominations without waiting for the result to age out. */
 export function dismiss(channelId: string) {
   const last = q.mostRecentPoll(channelId);

@@ -184,7 +184,8 @@ function render() {
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
         <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.
           Nominations are closed until this poll ends.</p>
-        <button class="btn red big" id="close">End poll now</button>
+        <button class="btn cta big" id="close">End poll now</button>
+        <button class="btn ghost big" id="cancel" style="margin-top:9px">Cancel poll — no winner</button>
       ` : state.tie.length > 1 ? `
         <div class="eyebrow"><span class="dot live"></span> Tied — nothing decided yet</div>
         <p class="lede"><b>${state.tie.map((t) => esc(t.title)).join(' vs ')}</b> —
@@ -277,7 +278,29 @@ function render() {
 
   const c = $('#close');
   if (c) c.onclick = async () => {
+    const ok = await confirmAction({
+      glyph: '🏁',
+      title: 'End the poll now?',
+      body: `Voting stops immediately and the winner is decided from the ${state.voters} ${
+        state.voters === 1 ? 'vote' : 'votes'} cast so far.`,
+      verb: 'End it now',
+      danger: false,
+    });
+    if (!ok) return;
     try { const r = await post('/api/poll/close'); toast(`Winner: ${r.winner?.title ?? 'none'}`); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  const cancelBtn = $('#cancel');
+  if (cancelBtn) cancelBtn.onclick = async () => {
+    const ok = await confirmAction({
+      title: 'Cancel this poll?',
+      body: 'Voting stops and nothing wins. Every movie stays on the board and you can '
+        + 'start again whenever you like.',
+      verb: 'Cancel the poll',
+    });
+    if (!ok) return;
+    try { await post('/api/poll/cancel'); toast('Poll cancelled — nothing was decided.'); }
     catch (e) { toast(e.message, true); }
   };
 

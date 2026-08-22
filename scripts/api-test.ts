@@ -86,7 +86,7 @@ check('voting needs a session', (await req('POST', '/api/vote', undefined, { nom
 check('search needs a session', (await req('GET', '/api/search?q=alien')).status, 401);
 
 console.log('\n— streamer-only endpoints —');
-for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/tiebreak', '/api/poll/settle', '/api/poll/dismiss']) {
+for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/cancel', '/api/poll/tiebreak', '/api/poll/settle', '/api/poll/dismiss']) {
   check(`${path} rejects a viewer`, (await req('POST', path, viewer)).status, 403);
   check(`${path} rejects the signed out`, (await req('POST', path, undefined)).status, 401);
 }
@@ -163,6 +163,25 @@ check('the result is on the page', (await req('GET', '/api/state')).body.phase, 
 check('the streamer clears it', (await req('POST', '/api/poll/dismiss', streamer)).status, 200);
 check('and the page moves on', (await req('GET', '/api/state')).body.phase, 'nominating');
 check('clearing twice is refused', (await req('POST', '/api/poll/dismiss', streamer)).status, 409);
+
+console.log('\n— cancelling a poll —');
+check('cancelling with no poll open is refused', (await req('POST', '/api/poll/cancel', streamer)).status, 409);
+// Earlier sections consumed the board; a poll needs at least two choices.
+await req('POST', '/api/nominate', other, { title: 'Ronin' });
+await req('POST', '/api/nominate', viewer, { title: 'Sicario' });
+const boardBefore = ((await req('GET', '/api/state')).body.nominations as any[]).map((n) => n.id).sort();
+check('a poll opens for the cancel test', (await req('POST', '/api/poll/open', streamer, { durationSeconds: 300 })).status, 200);
+const cancelOpts = (await req('GET', '/api/state')).body.options;
+await req('POST', '/api/vote', viewer, { nominationId: cancelOpts[0].nominationId });
+check('a viewer cannot cancel', (await req('POST', '/api/poll/cancel', viewer)).status, 403);
+check('the streamer can', (await req('POST', '/api/poll/cancel', streamer)).status, 200);
+const afterCancel = (await req('GET', '/api/state')).body;
+check('no result is shown', afterCancel.phase, 'nominating');
+check('nothing won', afterCancel.winner, null);
+check('every movie stayed on the board',
+  (afterCancel.nominations as any[]).map((n) => n.id).sort(), boardBefore);
+check('and a new poll can start', (await req('POST', '/api/poll/open', streamer, { durationSeconds: 60 })).status, 200);
+await req('POST', '/api/poll/cancel', streamer);
 
 console.log('\n— search without a TMDB key —');
 const search = await req('GET', '/api/search?q=alien', viewer);

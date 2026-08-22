@@ -18,6 +18,9 @@ nominations and interest are refused while a poll runs, so the shortlist cannot
 shift under people mid-vote. One vote each; you can move it until the timer runs
 out. Most votes wins.
 
+**Started by mistake?** Cancelling a poll stops the vote without deciding
+anything: nothing wins, nothing leaves the board, and it can be run again.
+
 **If it draws** — nothing is decided. The tied movies stay on the board and the
 streamer either runs a tiebreaker between just those, or calls it themselves.
 A poll is never quietly resolved in favour of one side.

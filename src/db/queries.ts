@@ -296,7 +296,7 @@ export type Poll = {
   closed_at: number | null;
   winner_nomination_id: number | null;
   /** null on polls closed before outcomes were recorded. */
-  outcome: 'winner' | 'tie' | 'empty' | null;
+  outcome: 'winner' | 'tie' | 'empty' | 'cancelled' | null;
   /** Set once the result has been cleared off the front page. */
   dismissed_at: number | null;
 };
@@ -332,6 +332,23 @@ export function mostRecentPoll(channelId: string): Poll | undefined {
 export function latestPoll(channelId: string): Poll | undefined {
   const poll = mostRecentPoll(channelId);
   return poll && poll.dismissed_at ? undefined : poll;
+}
+
+/**
+ * Abandons a running poll. Nothing wins, so nothing is marked won and nothing
+ * leaves the board — for the case where a poll was started by accident. Cleared
+ * from the front page at the same time: there is no result worth showing.
+ */
+export function cancelPoll(channelId: string, pollId: number): boolean {
+  const r = db
+    .prepare(
+      `UPDATE polls
+       SET status = 'closed', closed_at = ?, outcome = 'cancelled',
+           winner_nomination_id = NULL, dismissed_at = ?
+       WHERE id = ? AND channel_id = ? AND status = 'open'`,
+    )
+    .run(now(), now(), pollId, channelId);
+  return r.changes > 0;
 }
 
 /** Clears a finished result off the front page, putting it back to nominations. */
