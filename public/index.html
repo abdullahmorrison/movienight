@@ -63,7 +63,13 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 let state = null;
 let pick = null;      // one vote per person
-let dirty = false;
+/**
+ * Derived, not tracked. A flag set on every click stayed true even when the
+ * pick came back to the saved vote, so returning to your own choice read as
+ * unsaved. There are unsaved changes exactly when the pick differs from what
+ * the server has.
+ */
+const unsaved = () => pick !== (state?.myVote ?? null);
 let searchOpen = [];
 let deferredState = null;
 let lastSignature = null;
@@ -289,7 +295,6 @@ function openDetail(id) {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
     if (pick === id) return;
     pick = id;
-    dirty = true;
     render(); // redraws this dialog too
   };
 }
@@ -342,7 +347,7 @@ function ballotTile(o) {
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
-      ${on ? `<div class="stat mine">${dirty ? 'Picked — not submitted' : '✓ Your vote'}</div>` : ''}
+      ${on ? `<div class="stat mine">${unsaved() ? 'Picked — not submitted' : '✓ Your vote'}</div>` : ''}
       ${state.tallyHidden ? '' : `
         <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
         <div class="stat"><b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>`}
@@ -482,9 +487,9 @@ function renderVoting() {
     <div class="grid">${state.options.map(ballotTile).join('')}</div>
     <div class="pad">
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-        <button class="btn cta" id="submit" ${state.me && !dirty ? 'disabled' : ''}>
+        <button class="btn cta" id="submit" ${state.me && !unsaved() ? 'disabled' : ''}>
           ${!state.me ? 'Sign in to vote'
-            : dirty ? 'Submit my vote'
+            : unsaved() ? 'Submit my vote'
             : pick ? '✓ Vote saved'
             : 'Pick a movie'}
         </button>
@@ -754,7 +759,6 @@ function render() {
     const id = Number(el.dataset.id);
     if (pick === id) return; // a vote is moved, never cleared by clicking it again
     pick = id;
-    dirty = true;
     render();
   };
   $$('.tile.pick').forEach((el) => {
@@ -778,7 +782,6 @@ function render() {
     submit.textContent = 'Saving…';
     try {
       await post('/api/vote', { nominationId: pick });
-      dirty = false;
       await refresh();
       toast('Vote saved — you can change it until the timer runs out.');
     } catch (e) {
@@ -816,7 +819,7 @@ function screenSignature() {
     state.me?.id ?? null,
     state.myInterest,
     pick,
-    dirty,
+    unsaved(),
     detailId,
   ]);
 }
@@ -833,10 +836,12 @@ function apply(next, force = false) {
   const pollChanged = next.poll?.id !== state?.poll?.id;
   const typing = document.activeElement?.id === 'q';
   const term = typing ? $('#q').value : null;
+  // Measured against the old state, before it is replaced.
+  const hadUnsaved = Boolean(state) && unsaved();
 
   state = next;
-  // Never clobber a vote someone is mid-edit on.
-  if (pollChanged || !dirty) pick = next.myVote ?? null;
+  // Never clobber a pick someone has not submitted yet.
+  if (pollChanged || !hadUnsaved) pick = next.myVote ?? null;
 
   // The server re-broadcasts every few seconds while a poll is open. Rebuilding
   // the page for an unchanged snapshot throws away whatever the user is
