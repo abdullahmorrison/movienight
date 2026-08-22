@@ -148,7 +148,6 @@ export function createServer(): http.Server {
       missing: 'That nomination is no longer on the board.',
       'not-yours': 'You can only take back your own nominations.',
       backed: 'Other people want this now, so it stays on the board.',
-      'was-on-ballot': 'This has already been up for a vote, so it stays on the board.',
     }[result];
     res.status(409).json({ error: why });
   });

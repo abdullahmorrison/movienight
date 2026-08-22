@@ -349,19 +349,21 @@ check('a backed nomination stays', q.withdrawNomination(CH, w2id, u.d), 'backed'
 q.toggleInterest(CH, w2id, u.a);
 check('and can be taken back once they change their mind', q.withdrawNomination(CH, w2id, u.d), 'ok');
 
-// Anything that has already faced chat on a ballot stays put.
+// A movie that lost a vote is exactly what someone wants their slot back from.
 const w3 = q.nominate(CH, movie('Gattaca', 782, 1997), u.d);
 const w3id = w3.ok ? w3.id : -1;
 q.addInterest(CH, w3id, u.a);
 q.addInterest(CH, w3id, u.b);
 const wp = poll.open(CH, 120);
 poll.close(CH);
-// Drop the other backers so the ballot rule is what is actually being tested.
 q.toggleInterest(CH, w3id, u.a);
 q.toggleInterest(CH, w3id, u.b);
-if (q.pollOptions(CH, wp.id).some((o) => o.nomination_id === w3id)) {
-  check('one that has been on a ballot stays', q.withdrawNomination(CH, w3id, u.d), 'was-on-ballot');
-}
+const wasOnBallot = q.pollOptions(CH, wp.id).some((o) => o.nomination_id === w3id);
+check('it did go to a vote', wasOnBallot, true);
+check('and can still be taken back afterwards', q.withdrawNomination(CH, w3id, u.d), 'ok');
+check('leaving the board', q.listNominations(CH).some((n) => n.id === w3id), false);
+check('while the poll that used it survives', q.pollOptions(CH, wp.id).length > 0, true);
+check('and the title can be nominated again', q.nominate(CH, movie('Gattaca', 782, 1997), u.a).ok, true);
 poll.dismiss(CH);
 
 // Someone else backing a nomination hands the slot back on its own.

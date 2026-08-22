@@ -86,7 +86,7 @@ export function nominate(channelId: string, movie: MovieInput, userId: string): 
   const existing = db
     .prepare(
       `SELECT id FROM nominations
-       WHERE channel_id = ? AND title_key = ? AND won_at IS NULL AND vetoed_at IS NULL`,
+       WHERE channel_id = ? AND title_key = ? AND won_at IS NULL AND vetoed_at IS NULL AND withdrawn_at IS NULL`,
     )
     .get(channelId, key) as { id: number } | undefined;
   if (existing) return { ok: false, reason: 'duplicate', id: existing.id };
@@ -111,7 +111,7 @@ export function nominate(channelId: string, movie: MovieInput, userId: string): 
     .prepare(
       `SELECT COUNT(*) AS n FROM nominations n
        WHERE n.channel_id = ? AND n.nominated_by = ?
-         AND n.won_at IS NULL AND n.vetoed_at IS NULL
+         AND n.won_at IS NULL AND n.vetoed_at IS NULL AND n.withdrawn_at IS NULL
          AND NOT EXISTS (
            SELECT 1 FROM interest i
            WHERE i.nomination_id = n.id AND i.user_id <> n.nominated_by
@@ -161,7 +161,7 @@ export function toggleInterest(channelId: string, nominationId: number, userId: 
   const live = db
     .prepare(
       `SELECT id FROM nominations
-       WHERE id = ? AND channel_id = ? AND won_at IS NULL AND vetoed_at IS NULL`,
+       WHERE id = ? AND channel_id = ? AND won_at IS NULL AND vetoed_at IS NULL AND withdrawn_at IS NULL`,
     )
     .get(nominationId, channelId);
   if (!live) throw new Error('No such nomination');
@@ -186,7 +186,7 @@ export function listNominations(channelId: string, limit?: number): Nomination[]
        FROM nominations n
        JOIN users u ON u.id = n.nominated_by
        LEFT JOIN interest i ON i.nomination_id = n.id
-       WHERE n.channel_id = ? AND n.won_at IS NULL AND n.vetoed_at IS NULL
+       WHERE n.channel_id = ? AND n.won_at IS NULL AND n.vetoed_at IS NULL AND n.withdrawn_at IS NULL
        GROUP BY n.id
        -- Ties keep their existing order: the one that reached the count first
        -- stays ahead, so catching up never overtakes.
@@ -203,12 +203,14 @@ export function myInterest(channelId: string, userId: string): number[] {
   return rows.map((r) => r.nomination_id);
 }
 
-export type WithdrawResult = 'ok' | 'missing' | 'not-yours' | 'backed' | 'was-on-ballot';
+export type WithdrawResult = 'ok' | 'missing' | 'not-yours' | 'backed';
 
 /**
- * Lets someone take back a nomination to free up their allowance. Deliberately
- * narrow: once other people have backed it, or it has already been in front of
- * chat on a ballot, it stops being the nominator's to remove.
+ * Lets someone take back a nomination to free up their allowance. The one limit
+ * is other people: once anybody else has backed it, it belongs to the board.
+ *
+ * Marked rather than deleted — past polls reference it, and a movie that lost a
+ * vote is exactly the kind of thing someone wants their slot back from.
  */
 export function withdrawNomination(
   channelId: string,
@@ -218,7 +220,7 @@ export function withdrawNomination(
   const nom = db
     .prepare(
       `SELECT nominated_by FROM nominations
-       WHERE id = ? AND channel_id = ? AND won_at IS NULL AND vetoed_at IS NULL`,
+       WHERE id = ? AND channel_id = ? AND won_at IS NULL AND vetoed_at IS NULL AND withdrawn_at IS NULL`,
     )
     .get(nominationId, channelId) as { nominated_by: string } | undefined;
   if (!nom) return 'missing';
@@ -232,17 +234,16 @@ export function withdrawNomination(
     .get(channelId, nominationId, userId) as { n: number };
   if (backers.n > 0) return 'backed';
 
-  const onBallot = db
-    .prepare(`SELECT 1 FROM poll_options WHERE channel_id = ? AND nomination_id = ? LIMIT 1`)
-    .get(channelId, nominationId);
-  if (onBallot) return 'was-on-ballot';
-
   const tx = db.transaction(() => {
     db.prepare(`DELETE FROM interest WHERE channel_id = ? AND nomination_id = ?`).run(
       channelId,
       nominationId,
     );
-    db.prepare(`DELETE FROM nominations WHERE id = ? AND channel_id = ?`).run(nominationId, channelId);
+    db.prepare(`UPDATE nominations SET withdrawn_at = ? WHERE id = ? AND channel_id = ?`).run(
+      now(),
+      nominationId,
+      channelId,
+    );
   });
   tx();
   return 'ok';
@@ -252,7 +253,7 @@ export function veto(channelId: string, nominationId: number, reason: string): b
   const r = db
     .prepare(
       `UPDATE nominations SET vetoed_at = ?, veto_reason = ?
-       WHERE id = ? AND channel_id = ? AND vetoed_at IS NULL AND won_at IS NULL`,
+       WHERE id = ? AND channel_id = ? AND vetoed_at IS NULL AND won_at IS NULL AND withdrawn_at IS NULL`,
     )
     .run(now(), reason.slice(0, 200), nominationId, channelId);
   return r.changes > 0;

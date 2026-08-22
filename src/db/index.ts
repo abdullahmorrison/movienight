@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS nominations (
   vetoed_at     INTEGER,
   veto_reason   TEXT,
   won_at        INTEGER,
+  withdrawn_at  INTEGER,
   tmdb_id       INTEGER,
   year          INTEGER,
   poster_path   TEXT,
@@ -34,12 +35,6 @@ CREATE TABLE IF NOT EXISTS nominations (
   trailer_key   TEXT,
   overview      TEXT
 );
-
--- One live nomination per title per channel. Winners and vetoes drop out of
--- the constraint so a title can come back after its lockout expires.
-CREATE UNIQUE INDEX IF NOT EXISTS nominations_live_title
-  ON nominations(channel_id, title_key)
-  WHERE won_at IS NULL AND vetoed_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS nominations_channel ON nominations(channel_id, created_at);
 
@@ -112,12 +107,26 @@ function addColumn(table: string, column: string, decl: string): void {
 addColumn('users', 'avatar_url', 'TEXT');
 addColumn('polls', 'outcome', 'TEXT');
 addColumn('polls', 'dismissed_at', 'INTEGER');
+
+addColumn('nominations', 'withdrawn_at', 'INTEGER');
 addColumn('nominations', 'tmdb_id', 'INTEGER');
 addColumn('nominations', 'year', 'INTEGER');
 addColumn('nominations', 'poster_path', 'TEXT');
 addColumn('nominations', 'backdrop_path', 'TEXT');
 addColumn('nominations', 'trailer_key', 'TEXT');
 addColumn('nominations', 'overview', 'TEXT');
+
+// One live nomination per title per channel. Anything that has won, been vetoed
+// or been taken back drops out, so the title can be nominated again. Recreated
+// rather than IF NOT EXISTS: databases made before withdrawn_at existed carry
+// the old predicate.
+db.exec(`
+  DROP INDEX IF EXISTS nominations_live_title;
+  CREATE UNIQUE INDEX nominations_live_title
+    ON nominations(channel_id, title_key)
+    WHERE won_at IS NULL AND vetoed_at IS NULL AND withdrawn_at IS NULL;
+`);
+
 
 // Seed the one channel we serve.
 db.prepare(
