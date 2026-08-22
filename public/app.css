@@ -295,6 +295,7 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   font-variant-numeric: tabular-nums;
 }
 .stat.win b, .stat.win { color: var(--accent); }
+.stat.mine { color: var(--accent); font-weight: 700; }
 .tile.mine { outline: 1px solid rgba(255,255,255,.45); outline-offset: -1px; }
 
 /* selectable ballot tiles */

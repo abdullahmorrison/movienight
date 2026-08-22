@@ -287,7 +287,8 @@ function openDetail(id) {
   const vote = $('[data-detail-vote]');
   if (vote) vote.onclick = () => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
-    pick = pick === id ? null : id;
+    if (pick === id) return;
+    pick = id;
     dirty = true;
     render(); // redraws this dialog too
   };
@@ -341,6 +342,7 @@ function ballotTile(o) {
         ${posterEl(o)}
         <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
       </div>
+      ${on ? `<div class="stat mine">${dirty ? 'Picked — not submitted' : '✓ Your vote'}</div>` : ''}
       ${state.tallyHidden ? '' : `
         <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
         <div class="stat"><b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>`}
@@ -481,7 +483,10 @@ function renderVoting() {
     <div class="pad">
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <button class="btn cta" id="submit" ${state.me && !dirty ? 'disabled' : ''}>
-          ${!state.me ? 'Sign in to vote' : dirty ? 'Submit my vote' : 'Vote saved'}
+          ${!state.me ? 'Sign in to vote'
+            : dirty ? 'Submit my vote'
+            : pick ? '✓ Vote saved'
+            : 'Pick a movie'}
         </button>
         <span class="muted">${state.voters} voted${state.me ? '' : ' · or vote from chat with !vote 2'}</span>
       </div>
@@ -747,8 +752,8 @@ function render() {
   const choose_ = (el) => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
     const id = Number(el.dataset.id);
-    // One vote each: picking a different movie moves it rather than adding.
-    pick = pick === id ? null : id;
+    if (pick === id) return; // a vote is moved, never cleared by clicking it again
+    pick = id;
     dirty = true;
     render();
   };
