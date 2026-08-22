@@ -390,22 +390,40 @@ async function withdraw(id, fromDialog = false) {
   }
 }
 
+function slotRows(mine) {
+  return mine.map((n) => `
+    <div class="slot-row">
+      ${n.poster ? `<img src="${esc(img(n.poster, 'w92'))}" alt="">` : '<span class="ph"></span>'}
+      <span class="t">
+        <b>${esc(n.title)}</b>
+        <small>${n.year ?? ''}${n.year ? ' · ' : ''}nobody else wants it yet</small>
+      </span>
+      <button class="btn grey" data-withdraw="${n.id}">Take back</button>
+    </div>`).join('');
+}
+
 /** Shown in place of the search box, with the way out attached to it. */
 function slotsFull(mine) {
+  const cap = state.rules.nominationsPerUser;
   return `
     <div class="slots-full">
-      <h4>Both your nomination slots are in use</h4>
+      <h4>${cap === 2 ? 'Both your' : 'All your'} nomination slots are in use</h4>
       <p>Take one back to nominate something else — or leave them, and they free up
         on their own as soon as someone else wants them.</p>
-      ${mine.map((n) => `
-        <div class="slot-row">
-          ${n.poster ? `<img src="${esc(img(n.poster, 'w92'))}" alt="">` : '<span class="ph"></span>'}
-          <span class="t">
-            <b>${esc(n.title)}</b>
-            <small>${n.year ?? ''}${n.year ? ' · ' : ''}nobody else wants it yet</small>
-          </span>
-          <button class="btn grey" data-withdraw="${n.id}">Take back</button>
-        </div>`).join('')}
+      ${slotRows(mine)}
+    </div>`;
+}
+
+/**
+ * Taking one back should not require hitting the limit first, so the same rows
+ * sit under the search box whenever there is anything to take back.
+ */
+function slotsSpare(mine) {
+  if (mine.length === 0) return '';
+  return `
+    <div class="slots-spare">
+      <h4>Your nominations</h4>
+      ${slotRows(mine)}
     </div>`;
 }
 
@@ -417,8 +435,6 @@ function searchBox() {
       <span class="spin" id="spin"></span>
       <div class="results" id="results"></div>
     </div>
-    ${state.me ? '' : `<p class="lede" style="margin-top:10px">Or type
-      <code>!nominate The Thing</code> in chat.</p>`}
     <div class="toast" id="toast"></div>`;
 }
 
@@ -444,7 +460,7 @@ function nominateSection(withSteps = false) {
       </div>
       ${state.me && mine.length >= state.rules.nominationsPerUser
         ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
-        : searchBox()}
+        : searchBox() + (state.me ? slotsSpare(mine) : '')}
       <div class="row-head">
         <h3>Nominated so far</h3>
         <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote</span>
@@ -488,7 +504,7 @@ function renderVoting() {
         <button class="btn cta" id="submit" ${state.me && !dirty ? 'disabled' : ''}>
           ${!state.me ? 'Sign in to vote' : dirty ? 'Submit my vote' : 'Vote saved'}
         </button>
-        <span class="muted">${state.voters} voted${state.me ? '' : ' · or type !vote 2 in chat'}</span>
+        <span class="muted">${state.voters} voted${state.me ? '' : ' · or vote from chat with !vote 2'}</span>
       </div>
       <div class="toast" id="toast"></div>
     </div>`;
@@ -680,8 +696,8 @@ function render() {
     : renderNominating();
 
   $('#cmds').innerHTML = state.phase === 'voting'
-    ? 'In chat: <code>!vote 2</code> — one movie each'
-    : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code> · <code>!trailer &lt;id&gt;</code>';
+    ? 'You can also vote from chat: <code>!vote 2</code>'
+    : 'Nominating happens here — chat can only vote, and only while a poll is open.';
 
   wireSearch();
 

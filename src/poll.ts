@@ -32,6 +32,8 @@ export type Snapshot = {
   winner: (Card & { nominationId: number; votes: number }) | null;
   rules: typeof config.rules;
   posterBase: string;
+  /** Where to send viewers who need to nominate; chat can only vote. */
+  siteUrl: string;
 };
 
 /**
@@ -64,6 +66,7 @@ export function snapshot(channelId: string): Snapshot {
   }));
 
   const posterBase = config.tmdb.imageBase;
+  const siteUrl = config.publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
   if (!poll) {
     return {
@@ -76,6 +79,7 @@ export function snapshot(channelId: string): Snapshot {
       winner: null,
       rules: config.rules,
       posterBase,
+      siteUrl,
     };
   }
 
@@ -133,6 +137,7 @@ export function snapshot(channelId: string): Snapshot {
     winner,
     rules: config.rules,
     posterBase,
+    siteUrl,
   };
 }
 

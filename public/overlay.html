@@ -179,13 +179,13 @@ function render() {
   const max = Math.max(0, ...top.map((n) => n.interest));
   p.innerHTML = `
     <div class="head">
-      <h1>Nominations open<span class="cmd">Type <code>!nominate &lt;title&gt;</code> in chat</span></h1>
+      <h1>Nominations open<span class="cmd">Add yours at <code>${esc(state.siteUrl)}</code></span></h1>
     </div>
     ${top.length
       ? `<div class="row">${tiles(top, (n) => n.interest, max, ['person wants it', 'people want it'])}</div>
          <div class="foot">Not the vote yet — the ${state.rules.shortlistSize} most wanted
            become the choices, then voting opens live on stream</div>`
-      : `<div class="idle">No nominations yet — type <code>!nominate &lt;movie title&gt;</code></div>`}`;
+      : `<div class="idle">No nominations yet — add one at <code>${esc(state.siteUrl)}</code></div>`}`;
 }
 
 setInterval(() => {

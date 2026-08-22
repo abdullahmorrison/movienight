@@ -1,0 +1,166 @@
+/**
+ * Exercises the HTTP layer: auth, the streamer-only guards, the board freeze and
+ * request validation. smoke.ts calls the database functions directly and so
+ * never sees any of this.
+ *
+ * Run: npm run test:api
+ */
+process.env.DB_PATH = './api-test.db';
+process.env.SESSION_SECRET = 'api-test-secret';
+process.env.TWITCH_CLIENT_ID = 'test';
+process.env.TWITCH_CLIENT_SECRET = 'test';
+process.env.CHANNEL_ID = '5000';           // set, so no Twitch lookup happens
+process.env.CHANNEL_LOGIN = 'teststreamer';
+process.env.TMDB_API_KEY = '';
+process.env.BOT_ENABLED = 'false';
+process.env.NOMINATIONS_PER_USER = '2';
+process.env.SHORTLIST_SIZE = '5';
+
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import type { AddressInfo } from 'node:net';
+
+for (const f of ['./api-test.db', './api-test.db-wal', './api-test.db-shm']) {
+  if (fs.existsSync(f)) fs.unlinkSync(f);
+}
+
+const { config } = await import('../src/config.js');
+const q = await import('../src/db/queries.js');
+const { createServer } = await import('../src/web/server.js');
+
+const CH = config.channel.id;
+let failures = 0;
+
+function check(label: string, actual: unknown, expected: unknown) {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  const ok = a === e;
+  if (!ok) failures++;
+  console.log(`${ok ? '✅' : '❌'} ${label}${ok ? '' : `\n     expected ${e}\n     got      ${a}`}`);
+}
+
+/** Mints a signed session cookie the same way the auth middleware reads one. */
+function sessionFor(userId: string, login: string): string {
+  q.upsertUser(userId, login, login);
+  const sid = crypto.randomBytes(18).toString('base64url');
+  q.createSession(sid, CH, userId, 3600_000);
+  const sig = crypto.createHmac('sha256', config.sessionSecret).update(sid).digest('base64url');
+  return `mn_session=${sid}.${sig}`;
+}
+
+const server = createServer();
+await new Promise<void>((r) => server.listen(0, r));
+const port = (server.address() as AddressInfo).port;
+const base = `http://127.0.0.1:${port}`;
+
+type Res = { status: number; body: any };
+async function req(method: string, path: string, cookie?: string, body?: unknown): Promise<Res> {
+  const res = await fetch(base + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
+    redirect: 'manual',
+  });
+  const text = await res.text();
+  let parsed: any = text;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    /* html or a redirect */
+  }
+  return { status: res.status, body: parsed };
+}
+
+const streamer = sessionFor(CH, 'teststreamer');
+const viewer = sessionFor('6001', 'viewer');
+const other = sessionFor('6002', 'other');
+
+console.log('\n— signed out —');
+check('state is readable by anyone', (await req('GET', '/api/state')).status, 200);
+check('but reports nobody', (await req('GET', '/api/state')).body.me, null);
+check('nominating needs a session', (await req('POST', '/api/nominate', undefined, { title: 'X' })).status, 401);
+check('voting needs a session', (await req('POST', '/api/vote', undefined, { nominationId: 1 })).status, 401);
+check('search needs a session', (await req('GET', '/api/search?q=alien')).status, 401);
+
+console.log('\n— streamer-only endpoints —');
+for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/tiebreak', '/api/poll/settle', '/api/poll/dismiss']) {
+  check(`${path} rejects a viewer`, (await req('POST', path, viewer)).status, 403);
+  check(`${path} rejects the signed out`, (await req('POST', path, undefined)).status, 401);
+}
+check('veto rejects a viewer', (await req('POST', '/api/veto/1', viewer, {})).status, 403);
+
+console.log('\n— nominating —');
+check('a title is required', (await req('POST', '/api/nominate', viewer, {})).status, 400);
+const n1 = await req('POST', '/api/nominate', viewer, { title: 'Alien' });
+check('a plain title works without TMDB', n1.status, 200);
+const n2 = await req('POST', '/api/nominate', viewer, { title: 'Aliens' });
+check('a second one works', n2.status, 200);
+check('a third hits the cap', (await req('POST', '/api/nominate', viewer, { title: 'Predator' })).status, 409);
+check(
+  're-nominating the same title merges instead of duplicating',
+  (await req('POST', '/api/nominate', other, { title: 'alien' })).body.merged,
+  true,
+);
+
+console.log('\n— taking one back —');
+check(
+  "you cannot take back someone else's",
+  (await req('POST', `/api/nominate/${n2.body.id}/withdraw`, other)).status,
+  409,
+);
+check(
+  'a backed nomination stays',
+  (await req('POST', `/api/nominate/${n1.body.id}/withdraw`, viewer)).status,
+  409,
+);
+check('an unbacked one goes', (await req('POST', `/api/nominate/${n2.body.id}/withdraw`, viewer)).status, 200);
+check('a bad id is rejected', (await req('POST', '/api/nominate/abc/withdraw', viewer)).status, 400);
+
+// Reaching the cap is not a precondition for taking one back.
+const lone = await req('POST', '/api/nominate', other, { title: 'Ronin' });
+check('a lone nomination can be taken back', (await req('POST', `/api/nominate/${lone.body.id}/withdraw`, other)).status, 200);
+
+console.log('\n— the board freezes while voting —');
+await req('POST', '/api/nominate', other, { title: 'Heat' });
+const opened = await req('POST', '/api/poll/open', streamer, { durationSeconds: 300 });
+check('the streamer can open a poll', opened.status, 200);
+check('nominating is refused', (await req('POST', '/api/nominate', other, { title: 'Speed' })).status, 409);
+check('so is marking interest', (await req('POST', `/api/interest/${n1.body.id}`, other)).status, 409);
+check('and so is taking one back', (await req('POST', `/api/nominate/${n1.body.id}/withdraw`, viewer)).status, 409);
+check('a second poll is refused', (await req('POST', '/api/poll/open', streamer)).status, 409);
+
+console.log('\n— voting —');
+const state = (await req('GET', '/api/state')).body;
+const [optA, optB] = state.options;
+check('the poll is open', state.phase, 'voting');
+check('a vote lands', (await req('POST', '/api/vote', viewer, { nominationId: optA.nominationId })).status, 200);
+check('a movie not on the poll is refused', (await req('POST', '/api/vote', viewer, { nominationId: 99999 })).status, 409);
+check('a non-numeric id is rejected', (await req('POST', '/api/vote', viewer, { nominationId: 'x' })).status, 400);
+await req('POST', '/api/vote', viewer, { nominationId: optB.nominationId });
+const afterSwitch = (await req('GET', '/api/state', viewer)).body;
+check('switching moves the vote rather than adding one', afterSwitch.voters, 1);
+check('and the page knows which one is yours', afterSwitch.myVote, optB.nominationId);
+
+console.log('\n— closing —');
+check('a tiebreaker without a tie is refused', (await req('POST', '/api/poll/tiebreak', streamer)).status, 409);
+const closed = await req('POST', '/api/poll/close', streamer);
+check('closing reports the outcome', closed.body.outcome, 'winner');
+check('closing again is refused', (await req('POST', '/api/poll/close', streamer)).status, 409);
+check('nominating works again', (await req('POST', '/api/nominate', other, { title: 'Speed' })).status, 200);
+
+console.log('\n— clearing the result —');
+check('the result is on the page', (await req('GET', '/api/state')).body.phase, 'results');
+check('the streamer clears it', (await req('POST', '/api/poll/dismiss', streamer)).status, 200);
+check('and the page moves on', (await req('GET', '/api/state')).body.phase, 'nominating');
+check('clearing twice is refused', (await req('POST', '/api/poll/dismiss', streamer)).status, 409);
+
+console.log('\n— search without a TMDB key —');
+const search = await req('GET', '/api/search?q=alien', viewer);
+check('reports itself as off rather than failing', search.body, { enabled: false, results: [] });
+
+server.close();
+console.log(failures === 0 ? '\n🎉 all API checks passed\n' : `\n💥 ${failures} API check(s) failed\n`);
+process.exit(failures === 0 ? 0 : 1);

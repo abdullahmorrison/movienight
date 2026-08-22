@@ -315,6 +315,14 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   background: rgba(145, 70, 255, .09);
   padding: 20px; max-width: 560px;
 }
+.slots-spare {
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+  padding: 16px 20px; max-width: 560px; margin-top: 16px;
+}
+.slots-spare h4 {
+  margin: 0 0 2px; font-size: 13px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
 .slots-full h4 { margin: 0 0 4px; font-size: 17px; font-weight: 800; letter-spacing: -.015em; }
 .slots-full p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
 .slot-row {

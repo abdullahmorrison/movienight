@@ -32,8 +32,8 @@ export const config = {
   },
 
   bot: {
+    // Reads chat anonymously; there is no account and no token to configure.
     enabled: process.env.BOT_ENABLED !== 'false',
-    tokenFile: process.env.BOT_TOKEN_FILE ?? './bot-tokens.json',
   },
 
   // Single tenant for now. Every row still carries channel_id so a second

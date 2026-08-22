@@ -37,10 +37,9 @@ npm run dev
 
 ### Twitch app
 
-Create one at https://dev.twitch.tv/console/apps. Add **both** redirect URIs:
+Create one at https://dev.twitch.tv/console/apps. Add the redirect URI:
 
 - `http://localhost:3000/auth/callback` — viewers signing in
-- `http://localhost:3001/callback` — the one-time bot login
 
 Put the client id and secret in `.env` and set `CHANNEL_LOGIN` to the streamer's
 username. Leave `CHANNEL_ID` blank — it gets looked up from the login at boot.
@@ -53,19 +52,12 @@ Get a key at https://www.themoviedb.org/settings/api (free, instant) and set
 Without a key the app still runs — nominations fall back to plain typed titles
 with no posters.
 
-### Chat bot
+### Chat
 
-Make a second Twitch account for the bot, then:
+Nothing to set up. Twitch allows anonymous read-only connections, so the app
+joins the channel with no bot account and no token, and it never posts.
 
-```bash
-npm run bot-auth      # log in as the BOT account
-```
-
-That writes `bot-tokens.json` and the app refreshes it from then on. Mod the bot
-in the channel (`/mod yourbotname`) or follower-only and slow mode will eat its
-messages.
-
-Set `BOT_ENABLED=false` to run the site without chat.
+Set `BOT_ENABLED=false` to run the site without reading chat at all.
 
 ## Pages
 
@@ -91,26 +83,24 @@ whatever the accent is.
 
 | Command | Who |
 |---|---|
-| `!nominate <title>` | anyone |
-| `!movies` | anyone |
-| `!interest <id>` | anyone |
 | `!vote 2` | anyone, while a poll is open |
-| `!poll [seconds]` | mods + streamer |
-| `!tiebreak [seconds]` | mods + streamer, after a draw |
-| `!endpoll` | mods + streamer |
-| `!veto <id> [reason]` | mods + streamer |
 
-Votes get no chat reply on purpose — a busy chat would flood. The overlay shows
-them land.
+That is the whole list, on purpose. Voting is one number and needs no reply, so
+it works well in chat. Nominating does not: picking the right film out of
+several with the same title needs search, a poster and a year, and a typo in a
+chat line silently nominates the wrong movie. Everything else happens on the
+site, and the streamer's controls are on `/poll-controls`.
 
-Only the first number counts: `!vote 3 5` is a vote for 3.
+The app never writes to chat, so there is no reply to any command.
 
 ## Scripts
 
 ```bash
-npm run dev         # tsx watch
-npm run smoke       # end-to-end check of the voting rules, throwaway db
-npm run typecheck
+npm run dev              # tsx watch
+npm test                 # typecheck + all three suites below
+npm run smoke            # voting rules, against a throwaway database
+npm run test:api         # HTTP layer: auth, streamer-only guards, validation
+npm run test:migration   # boots on a first-version database and checks upgrades
 npm run dev-login <userId> <login>   # mint a session without Twitch, dev only
 ```
 

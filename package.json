@@ -9,11 +9,12 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
-    "bot-auth": "tsx scripts/bot-auth.ts",
-    "dev-login": "tsx scripts/dev-login.ts"
+    "dev-login": "tsx scripts/dev-login.ts",
+    "test:api": "tsx scripts/api-test.ts",
+    "test:migration": "tsx scripts/migration-test.ts",
+    "test": "npm run typecheck && npm run smoke && npm run test:api && npm run test:migration"
   },
   "dependencies": {
-    "@twurple/auth": "^8.1.4",
     "@twurple/chat": "^8.1.4",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
