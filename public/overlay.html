@@ -25,12 +25,27 @@
     border: 1px solid rgba(255, 255, 255, .1);
     border-top: 3px solid var(--accent);
     box-shadow: 0 22px 60px rgba(0,0,0,.7);
+    position: relative;
     opacity: 0;
-    transform: translateY(26px) scale(.97);
-    transition: opacity .45s ease, transform .45s cubic-bezier(.2, .8, .3, 1);
+    /* Far enough to read as travel rather than a fade. */
+    transform: translateY(90px) scale(.96);
+    transition: opacity .3s ease, transform .55s cubic-bezier(.18, .89, .32, 1.06);
     will-change: opacity, transform;
   }
-  .panel.on { opacity: 1; transform: none; }
+  .panel.on {
+    opacity: 1;
+    transform: none;
+    transition: opacity .25s ease, transform .55s cubic-bezier(.18, .89, .32, 1.06);
+  }
+
+  /* The top rule doubles as the countdown once a result is up. */
+  .reveal {
+    position: absolute; top: -3px; left: 0; height: 3px; width: 100%;
+    background: var(--accent); border-radius: 6px 0 0 0;
+    display: none; transform-origin: left center;
+  }
+  .panel.revealing { border-top-color: rgba(255, 255, 255, .12); }
+  .panel.revealing .reveal { display: block; }
   @media (prefers-reduced-motion: reduce) {
     .panel { transition-duration: .01ms; }
   }
@@ -94,7 +109,10 @@
 </style>
 </head>
 <body>
-<div class="panel" id="panel"></div>
+<div class="panel" id="panel">
+  <i class="reveal" id="reveal"></i>
+  <div id="content"></div>
+</div>
 <script>
   try {
     const q = new URLSearchParams(location.search).get('accent');
@@ -149,11 +167,22 @@ function shouldShow() {
 
 function applyVisibility() {
   const p = document.getElementById('panel');
-  if (p) p.classList.toggle('on', shouldShow());
+  if (!p) return;
+  p.classList.toggle('on', shouldShow());
+
+  // While a result is up, the top rule drains to show how long it has left.
+  const closedAt = state?.phase === 'results' ? state.poll?.closedAt : null;
+  const revealMs = (state?.rules.revealSeconds ?? 20) * 1000;
+  const revealing = Boolean(closedAt) && !ALWAYS;
+  p.classList.toggle('revealing', revealing);
+  if (revealing) {
+    const left = Math.max(0, revealMs - (Date.now() - closedAt));
+    document.getElementById('reveal').style.width = `${(left / revealMs) * 100}%`;
+  }
 }
 
 function render() {
-  const p = document.getElementById('panel');
+  const p = document.getElementById('content');
   if (!state) return;
   applyVisibility();
 
