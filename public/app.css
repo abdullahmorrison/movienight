@@ -302,6 +302,9 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   box-shadow: var(--shadow); overflow: hidden; max-height: 400px; overflow-y: auto;
 }
 .results:empty { display: none; }
+/* While a nomination is in flight, so a second click cannot queue another. */
+.results.busy { pointer-events: none; opacity: .5; }
+.search .spin { font-variant-numeric: tabular-nums; }
 .result {
   display: flex; gap: 12px; padding: 9px 11px; cursor: pointer; align-items: center;
   border: 0; background: none; width: 100%; text-align: left; color: inherit; font: inherit;

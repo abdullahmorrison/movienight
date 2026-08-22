@@ -52,6 +52,9 @@ let state = null;
 let pick = null;      // one vote per person
 let dirty = false;
 let searchOpen = [];
+let deferredState = null;
+let lastSignature = null;
+let choosing = false;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
@@ -487,7 +490,12 @@ let searchTimer;
 function wireSearch() {
   const q = $('#q');
   if (!q) return;
-  const close = () => { searchOpen = []; const r = $('#results'); if (r) r.innerHTML = ''; };
+  const close = () => {
+    searchOpen = [];
+    const r = $('#results');
+    if (r) r.innerHTML = '';
+    flushDeferred();
+  };
 
   if (!state.me) {
     const stop = (e) => {
@@ -510,6 +518,7 @@ function wireSearch() {
     if (e.key === 'Escape') close();
     if (e.key === 'Enter' && searchOpen[0]) { e.preventDefault(); choose(searchOpen[0]); }
   };
+  q.onblur = () => setTimeout(flushDeferred, 150);
   document.onclick = (e) => { if (!e.target.closest('.search')) close(); };
 }
 
@@ -629,6 +638,9 @@ function render() {
 
   if (detailId !== null) openDetail(detailId);
 
+  // Always describes what is currently drawn, so apply() can trust it.
+  lastSignature = screenSignature();
+
   const submit = $('#submit');
   if (submit) submit.onclick = async () => {
     if (!allowed('Votes are tied to your Twitch account, so nobody can vote twice.')) return;
@@ -646,7 +658,48 @@ function render() {
   };
 }
 
-function apply(next) {
+/** True while the results dropdown is up or the box has focus. */
+function searchBusy() {
+  const box = $('#results');
+  const q = $('#q');
+  return Boolean((box && box.children.length) || (q && document.activeElement === q));
+}
+
+function flushDeferred() {
+  if (!deferredState) return;
+  const next = deferredState;
+  deferredState = null;
+  apply(next, true);
+}
+
+/** Everything on screen, so an identical snapshot can be skipped entirely. */
+function screenSignature() {
+  return JSON.stringify([
+    state.phase,
+    state.poll?.id ?? null,
+    state.poll?.closedAt ?? null,
+    state.voters,
+    state.options.map((o) => [o.nominationId, o.votes]),
+    state.nominations.map((n) => [n.id, n.interest]),
+    state.tie.map((t) => t.nominationId),
+    state.winner?.nominationId ?? null,
+    state.me?.id ?? null,
+    state.myInterest,
+    pick,
+    dirty,
+    detailId,
+  ]);
+}
+
+function apply(next, force = false) {
+  // A rebuild would destroy the result the user is reaching for, so hold the
+  // update until they are done with the search box.
+  if (!force && searchBusy()) {
+    deferredState = next;
+    return;
+  }
+  deferredState = null;
+
   const pollChanged = next.poll?.id !== state?.poll?.id;
   const typing = document.activeElement?.id === 'q';
   const term = typing ? $('#q').value : null;
@@ -654,6 +707,12 @@ function apply(next) {
   state = next;
   // Never clobber a vote someone is mid-edit on.
   if (pollChanged || !dirty) pick = next.myVote ?? null;
+
+  // The server re-broadcasts every few seconds while a poll is open. Rebuilding
+  // the page for an unchanged snapshot throws away whatever the user is
+  // clicking, so redraw only when something would actually look different.
+  if (screenSignature() === lastSignature) return;
+
   render();
 
   if (typing) {
@@ -685,7 +744,7 @@ setInterval(() => {
   }
 }, 250);
 
-async function refresh() { apply(await (await fetch('/api/state')).json()); }
+async function refresh(force = false) { apply(await (await fetch('/api/state')).json(), force); }
 setInterval(refresh, 15000);
 await refresh();
 connect();

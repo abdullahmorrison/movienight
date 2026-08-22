@@ -248,8 +248,7 @@ function attachWebsocket(server: http.Server): void {
     }
   });
 
-  // Keep the tally ticking down on overlays even when nobody votes.
-  setInterval(() => {
-    if (q.getOpenPoll(CHANNEL)) poll.broadcast(CHANNEL);
-  }, 5000).unref();
+  // No periodic broadcast: every vote, nomination and veto already pushes, and
+  // both the page and the overlay run their own countdown off closesAt. Sending
+  // an unchanged snapshot every few seconds only made clients redraw for nothing.
 }
