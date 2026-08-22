@@ -75,7 +75,11 @@ header.top h1 {
   color: var(--accent); text-transform: uppercase;
   min-width: 0; overflow: hidden;
 }
-header.top h1 a.home { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header.top h1 a.home {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The glyph carries its own colour, so keep it clear of the wordmark's. */
+header.top h1 .mark { margin-right: 8px; font-size: 1.05em; }
 header.top h1 a.home {
   color: inherit; text-decoration: none;
   transition: opacity .12s;

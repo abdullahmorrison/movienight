@@ -1,4 +1,4 @@
-# Movie Night
+# 🍿 Movie Night
 
 Chat picks the movie for a Twitch streamer's weekly movie night. Nominations run
 all week on the site; the streamer opens a timed vote on stream.
