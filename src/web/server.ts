@@ -73,8 +73,6 @@ export function createServer(): http.Server {
     });
   });
 
-  app.get('/api/winners', (_req, res) => res.json(q.recentWinners(CHANNEL)));
-
   app.get('/api/search', requireUser, async (req, res) => {
     const query = String(req.query.q ?? '');
     if (!tmdb.enabled()) {

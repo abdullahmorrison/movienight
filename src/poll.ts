@@ -34,6 +34,15 @@ export type Snapshot = {
   posterBase: string;
   /** Where to send viewers who need to nominate; chat can only vote. */
   siteUrl: string;
+  /** Everything that has won before, newest first. */
+  winners: {
+    nominationId: number;
+    title: string;
+    year: number | null;
+    poster: string | null;
+    trailer: string | null;
+    wonAt: number;
+  }[];
 };
 
 /**
@@ -66,6 +75,14 @@ export function snapshot(channelId: string): Snapshot {
   }));
 
   const posterBase = config.tmdb.imageBase;
+  const winners = q.recentWinners(channelId, 12).map((w) => ({
+    nominationId: w.id,
+    title: w.title,
+    year: w.year,
+    poster: w.poster_path,
+    trailer: w.trailer_key,
+    wonAt: w.won_at,
+  }));
   const siteUrl = config.publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
   if (!poll) {
@@ -80,6 +97,7 @@ export function snapshot(channelId: string): Snapshot {
       rules: config.rules,
       posterBase,
       siteUrl,
+      winners,
     };
   }
 
@@ -138,6 +156,7 @@ export function snapshot(channelId: string): Snapshot {
     rules: config.rules,
     posterBase,
     siteUrl,
+    winners,
   };
 }
 

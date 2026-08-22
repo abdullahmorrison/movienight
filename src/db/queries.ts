@@ -272,7 +272,7 @@ export function unveto(channelId: string, nominationId: number): boolean {
 export function recentWinners(channelId: string, limit = 10) {
   return db
     .prepare(
-      `SELECT id, title, year, poster_path, won_at FROM nominations
+      `SELECT id, title, year, poster_path, trailer_key, won_at FROM nominations
        WHERE channel_id = ? AND won_at IS NOT NULL
        ORDER BY won_at DESC LIMIT ?`,
     )
@@ -281,6 +281,7 @@ export function recentWinners(channelId: string, limit = 10) {
     title: string;
     year: number | null;
     poster_path: string | null;
+    trailer_key: string | null;
     won_at: number;
   }[];
 }

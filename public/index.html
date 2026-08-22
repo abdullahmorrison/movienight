@@ -17,7 +17,7 @@
 
 </head>
 <body>
-<header class="top">
+<header class="top overlay">
   <div class="top-inner">
     <h1><a href="/" class="home">Movie Night</a> <small id="chan"></small></h1>
     <div id="auth"></div>
@@ -657,6 +657,44 @@ async function choose(movie) {
   }
 }
 
+/* ---------- past winners ---------- */
+
+const WHEN = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+
+/** Always on the page: what the night actually ended up watching, week to week. */
+function pastWinners() {
+  if (!state.winners.length) {
+    return `
+      <div class="pad">
+        <div class="row-head"><h3>Past winners</h3></div>
+        <p class="lede">Nothing has won yet. The first movie night will show up here.</p>
+      </div>`;
+  }
+  return `
+    <div class="pad">
+      <div class="row-head">
+        <h3>Past winners</h3>
+        <span class="note">Locked out of nominations for
+          ${state.rules.repeatLockoutWeeks} weeks after winning</span>
+      </div>
+    </div>
+    <div class="winners">
+      ${state.winners.map((w) => {
+        const art = w.poster
+          ? `<img src="${esc(img(w.poster, 'w185'))}" alt="" loading="lazy">`
+          : `<div class="noposter">${esc(w.title)}</div>`;
+        const inner = `
+          <span class="art">${art}<span class="when">${esc(WHEN.format(new Date(w.wonAt)))}</span></span>
+          <b>${esc(w.title)}</b>
+          <small>${w.year ?? ''}</small>`;
+        return w.trailer
+          ? `<a class="won" href="https://www.youtube.com/watch?v=${esc(w.trailer)}"
+               target="_blank" rel="noopener noreferrer" title="Trailer">${inner}</a>`
+          : `<div class="won">${inner}</div>`;
+      }).join('')}
+    </div>`;
+}
+
 /* ---------- render ---------- */
 
 function render() {
@@ -665,10 +703,12 @@ function render() {
   // Rebuilt nodes must not animate into whatever state they are already in.
   main.classList.add('settling');
   requestAnimationFrame(() => requestAnimationFrame(() => main.classList.remove('settling')));
-  main.innerHTML =
+  const body =
     state.phase === 'voting' ? renderVoting()
     : state.phase === 'results' ? renderResults()
     : renderNominating();
+  // History belongs on the page whatever phase it is in.
+  main.innerHTML = body + pastWinners();
 
   // Only worth saying while it is actionable; the rest of the time it is noise.
   $('#cmds').innerHTML = state.phase === 'voting'
