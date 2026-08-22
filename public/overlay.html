@@ -137,6 +137,29 @@ function render() {
     return;
   }
 
+  if (state.phase === 'results' && state.tie.length > 1) {
+    const max = Math.max(1, ...state.tie.map((t) => t.votes));
+    p.innerHTML = `
+      <div class="head">
+        <h1>It's a tie<span class="cmd">${state.tie[0].votes}
+          ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each — nothing decided yet</span></h1>
+      </div>
+      <div class="row">${state.tie.map((t, i) => `
+        <div class="item">
+          <div class="art lead">
+            <span class="num">${i + 1}</span>
+            ${t.poster
+              ? `<img src="${esc(state.posterBase)}/w342${esc(t.poster)}" alt="">`
+              : `<div class="noposter">${esc(t.title)}</div>`}
+          </div>
+          <div class="bar"><i style="width:${(t.votes / max) * 100}%"></i></div>
+          <div class="count"><b>${t.votes}</b> ${t.votes === 1 ? 'vote' : 'votes'}</div>
+          <div class="cap">${esc(t.title)} <span>${t.year ?? ''}</span></div>
+        </div>`).join('')}</div>
+      <div class="foot">A tiebreaker is coming — same movies, one more vote</div>`;
+    return;
+  }
+
   if (state.phase === 'results' && state.winner) {
     const w = state.winner;
     p.innerHTML = `

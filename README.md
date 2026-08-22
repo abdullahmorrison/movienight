@@ -12,8 +12,11 @@ poster, a year, and a stable id — which keeps The Thing (1982) and The Thing
 (2011) apart. Adding interest ranks the shortlist. It is not the vote.
 
 **On stream** — the streamer opens a poll on the top N. One vote each; you can
-move it until the timer runs out. Most votes wins, and ties go to whichever movie
-reached that count first.
+move it until the timer runs out. Most votes wins.
+
+**If it draws** — nothing is decided. The tied movies stay on the board and the
+streamer either runs a tiebreaker between just those, or calls it themselves.
+A poll is never quietly resolved in favour of one side.
 
 **After** — the winner leaves the board and can't come back for
 `REPEAT_LOCKOUT_WEEKS`. Everyone else carries over with their interest intact.
@@ -89,6 +92,7 @@ whatever the accent is.
 | `!interest <id>` | anyone |
 | `!vote 2` | anyone, while a poll is open |
 | `!poll [seconds]` | mods + streamer |
+| `!tiebreak [seconds]` | mods + streamer, after a draw |
 | `!endpoll` | mods + streamer |
 | `!veto <id> [reason]` | mods + streamer |
 

@@ -147,8 +147,11 @@ try {
 check('a vote for a movie not on the poll is refused', rejected, true);
 
 console.log('\n— closing —');
-const winner = poll.close(CH);
-check('winner is the most-voted', winner?.title, options[1]!.title);
+const closed = poll.close(CH);
+check('a clear result reports a winner', closed?.outcome, 'winner');
+check('winner is the most-voted', closed?.outcome === 'winner' ? closed.winner.title : null,
+  options[1]!.title);
+const winner = closed?.outcome === 'winner' ? closed.winner : null;
 check('poll is closed', q.getOpenPoll(CH), undefined);
 
 console.log('\n— after the poll —');
@@ -230,6 +233,63 @@ const after = new Map(q.tally(CH, p3.id).map((t) => [t.nomination_id, t.votes]))
 check('switching moves the vote', [after.get(opts[0]!.nomination_id), after.get(opts[1]!.nomination_id)], [0, 2]);
 check('and the voter is still counted once', q.voterCount(CH, p3.id), 2);
 poll.close(CH);
+
+console.log('\n— ties —');
+
+const tp = poll.open(CH, 120);
+const tOpts = q.pollOptions(CH, tp.id);
+q.castVote(CH, tp.id, u.a, tOpts[0]!.nomination_id, 'web');
+q.castVote(CH, tp.id, u.b, tOpts[1]!.nomination_id, 'web');
+
+const drawResult = poll.close(CH);
+check('a draw is reported as a tie, not resolved quietly', drawResult?.outcome, 'tie');
+check(
+  'both drawn movies are named',
+  drawResult?.outcome === 'tie' ? drawResult.tied.map((t) => t.nomination_id).sort() : [],
+  [tOpts[0]!.nomination_id, tOpts[1]!.nomination_id].sort(),
+);
+check(
+  'nothing is marked as won',
+  q.listNominations(CH).filter((n) => n.id === tOpts[0]!.nomination_id).length,
+  1,
+);
+check('the drawn movies stay on the board', q.listNominations(CH).filter(
+  (n) => n.id === tOpts[0]!.nomination_id || n.id === tOpts[1]!.nomination_id).length, 2);
+
+// A tiebreaker runs between the drawn movies only, whatever else is on the board.
+const bp = poll.tiebreak(CH, 120);
+check('the tiebreaker only offers the tied movies',
+  q.pollOptions(CH, bp.id).map((o) => o.nomination_id).sort(),
+  [tOpts[0]!.nomination_id, tOpts[1]!.nomination_id].sort());
+
+q.castVote(CH, bp.id, u.a, tOpts[0]!.nomination_id, 'web');
+q.castVote(CH, bp.id, u.b, tOpts[0]!.nomination_id, 'web');
+const broken = poll.close(CH);
+check('the tiebreaker produces a winner', broken?.outcome, 'winner');
+check('and it leaves the board', q.listNominations(CH).some((n) => n.id === tOpts[0]!.nomination_id), false);
+
+// The streamer can also just call it instead of re-running.
+const sp = poll.open(CH, 120);
+const sOpts = q.pollOptions(CH, sp.id);
+q.castVote(CH, sp.id, u.a, sOpts[0]!.nomination_id, 'web');
+q.castVote(CH, sp.id, u.b, sOpts[1]!.nomination_id, 'web');
+check('drawn again', poll.close(CH)?.outcome, 'tie');
+const called = poll.settle(CH, sOpts[1]!.nomination_id);
+check('calling it declares that movie the winner', called.nomination_id, sOpts[1]!.nomination_id);
+check('and it leaves the board too', q.listNominations(CH).some((n) => n.id === sOpts[1]!.nomination_id), false);
+
+let refused = false;
+try {
+  poll.settle(CH, sOpts[0]!.nomination_id);
+} catch {
+  refused = true;
+}
+check('a settled tie cannot be settled again', refused, true);
+
+console.log('\n— no votes at all —');
+const ep = poll.open(CH, 120);
+check('an empty poll is neither a win nor a tie', poll.close(CH)?.outcome, 'empty');
+void ep;
 
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

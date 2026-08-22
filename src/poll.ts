@@ -17,6 +17,8 @@ export type Card = {
 
 export type Snapshot = {
   phase: 'nominating' | 'voting' | 'results';
+  /** Set on a finished poll that drew: the streamer decides what happens next. */
+  tie: (Card & { nominationId: number; votes: number })[];
   poll: { id: number; closesAt: number; closedAt: number | null } | null;
   options: (Card & { position: number; nominationId: number; votes: number })[];
   nominations: (Card & { id: number; nominator: string; interest: number })[];
@@ -47,6 +49,7 @@ export function snapshot(channelId: string): Snapshot {
   if (!poll) {
     return {
       phase: 'nominating',
+      tie: [],
       poll: null,
       options: [],
       nominations,
@@ -88,8 +91,22 @@ export function snapshot(channelId: string): Snapshot {
     }
   }
 
+  const tie = isOpen
+    ? []
+    : q.tiedIn(channelId, poll.id).map((t) => ({
+        nominationId: t.nomination_id,
+        title: t.title,
+        year: t.year,
+        poster: t.poster_path,
+        backdrop: t.backdrop_path,
+        trailer: t.trailer_key,
+        overview: t.overview,
+        votes: t.votes,
+      }));
+
   return {
     phase: isOpen ? 'voting' : 'results',
+    tie,
     poll: { id: poll.id, closesAt: poll.closes_at, closedAt: poll.closed_at },
     options,
     nominations,
@@ -104,21 +121,44 @@ export function broadcast(channelId: string): void {
   events.emit('update', channelId, snapshot(channelId));
 }
 
-export function open(channelId: string, durationSeconds = config.rules.pollDurationSeconds) {
-  const poll = q.openPoll(channelId, durationSeconds, config.rules.shortlistSize);
+export function open(
+  channelId: string,
+  durationSeconds = config.rules.pollDurationSeconds,
+  only?: number[],
+) {
+  const poll = q.openPoll(channelId, durationSeconds, config.rules.shortlistSize, only);
   schedule(channelId, poll.id, poll.closes_at);
   broadcast(channelId);
   return poll;
+}
+
+/** Re-runs the last poll with only the movies that drew. */
+export function tiebreak(channelId: string, durationSeconds = config.rules.pollDurationSeconds) {
+  const last = q.latestPoll(channelId);
+  if (!last || last.outcome !== 'tie') throw new Error('The last poll did not end in a tie');
+  const ids = q.tiedIn(channelId, last.id).map((t) => t.nomination_id);
+  if (ids.length < 2) throw new Error('Nothing to break');
+  return open(channelId, durationSeconds, ids);
+}
+
+export function settle(channelId: string, nominationId: number) {
+  const last = q.latestPoll(channelId);
+  if (!last || last.outcome !== 'tie') throw new Error('The last poll did not end in a tie');
+  const winner = q.settleTie(channelId, last.id, nominationId);
+  if (!winner) throw new Error('That movie was not one of the tied choices');
+  broadcast(channelId);
+  events.emit('settled', channelId, winner);
+  return winner;
 }
 
 export function close(channelId: string, pollId?: number) {
   const poll = pollId ? q.getPoll(channelId, pollId) : q.getOpenPoll(channelId);
   if (!poll) return null;
   clearTimer(channelId);
-  const winner = q.closePoll(channelId, poll.id);
+  const result = q.closePoll(channelId, poll.id);
   broadcast(channelId);
-  events.emit('closed', channelId, winner);
-  return winner;
+  events.emit('closed', channelId, result);
+  return result;
 }
 
 function clearTimer(channelId: string) {

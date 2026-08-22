@@ -174,12 +174,38 @@ export function createServer(): http.Server {
   });
 
   app.post('/api/poll/close', requireBroadcaster, (_req, res) => {
-    const winner = poll.close(CHANNEL);
-    if (!winner) {
+    const result = poll.close(CHANNEL);
+    if (!result) {
       res.status(409).json({ error: 'No poll is open.' });
       return;
     }
-    res.json({ ok: true, winner });
+    res.json({ ok: true, ...result });
+  });
+
+  app.post('/api/poll/tiebreak', requireBroadcaster, (req, res) => {
+    const seconds = Number((req.body as { durationSeconds?: unknown }).durationSeconds);
+    try {
+      const p = poll.tiebreak(
+        CHANNEL,
+        Number.isFinite(seconds) && seconds > 0 ? seconds : config.rules.pollDurationSeconds,
+      );
+      res.json({ ok: true, pollId: p.id, closesAt: p.closes_at });
+    } catch (err) {
+      res.status(409).json({ error: (err as Error).message });
+    }
+  });
+
+  app.post('/api/poll/settle', requireBroadcaster, (req, res) => {
+    const id = Number((req.body as { nominationId?: unknown }).nominationId);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: 'Pick one of the tied movies.' });
+      return;
+    }
+    try {
+      res.json({ ok: true, winner: poll.settle(CHANNEL, id) });
+    } catch (err) {
+      res.status(409).json({ error: (err as Error).message });
+    }
   });
 
   app.post('/api/veto/:id', requireBroadcaster, (req, res) => {

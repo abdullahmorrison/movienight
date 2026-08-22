@@ -69,15 +69,26 @@ export async function startBot(): Promise<ChatClient | null> {
 
   chat.connect();
 
-  poll.events.on('update', () => {});
-  poll.events.on('closed', (channelId: string, winner: q.Tally | null) => {
+  poll.events.on('closed', (channelId: string, result: q.CloseResult | null) => {
+    if (channelId !== CHANNEL || !result) return;
+    const say = (m: string) => chat.say(config.channel.login, m);
+
+    if (result.outcome === 'winner') {
+      const { title, votes } = result.winner;
+      return void say(`🎬 Voting closed — tonight's movie is ${title} with ${votes} ${votes === 1 ? 'vote' : 'votes'}.`);
+    }
+    if (result.outcome === 'tie') {
+      const names = result.tied.map((t) => t.title).join(' vs ');
+      return void say(
+        `🤝 It's a TIE — ${names}, ${result.tied[0]!.votes} votes each. Mods: !tiebreak to run it again.`,
+      );
+    }
+    return void say('🎬 Voting closed with no votes cast.');
+  });
+
+  poll.events.on('settled', (channelId: string, winner: q.Tally) => {
     if (channelId !== CHANNEL) return;
-    chat.say(
-      config.channel.login,
-      winner
-        ? `🎬 Voting closed — tonight's movie is ${winner.title} with ${winner.votes} ${winner.votes === 1 ? 'vote' : 'votes'}.`
-        : '🎬 Voting closed with no votes cast.',
-    );
+    chat.say(config.channel.login, `🎬 Tie settled — tonight's movie is ${winner.title}.`);
   });
 
   return chat;
@@ -203,6 +214,23 @@ async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): 
         const options = q.pollOptions(CHANNEL, p.id);
         say(
           `🗳️ Voting is OPEN for ${seconds}s — !vote <number> for ONE movie: ${options
+            .map((o) => `${o.position}) ${o.title}`)
+            .join(' · ')}`,
+        );
+      } catch (err) {
+        say(`@${login} ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case 'tiebreak': {
+      if (!isPrivileged) return;
+      const seconds = Number(arg) || config.rules.pollDurationSeconds;
+      try {
+        const p = poll.tiebreak(CHANNEL, seconds);
+        const options = q.pollOptions(CHANNEL, p.id);
+        say(
+          `🤝 TIEBREAKER open for ${seconds}s — !vote <number>: ${options
             .map((o) => `${o.position}) ${o.title}`)
             .join(' · ')}`,
         );

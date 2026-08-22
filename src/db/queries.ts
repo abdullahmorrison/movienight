@@ -237,7 +237,14 @@ export type Poll = {
   closes_at: number;
   closed_at: number | null;
   winner_nomination_id: number | null;
+  /** null on polls closed before outcomes were recorded. */
+  outcome: 'winner' | 'tie' | 'empty' | null;
 };
+
+export type CloseResult =
+  | { outcome: 'winner'; winner: Tally }
+  | { outcome: 'tie'; tied: Tally[] }
+  | { outcome: 'empty' };
 
 export function getOpenPoll(channelId: string): Poll | undefined {
   return db
@@ -257,9 +264,21 @@ export function latestPoll(channelId: string): Poll | undefined {
     | undefined;
 }
 
-export function openPoll(channelId: string, durationSeconds: number, size: number): Poll {
+/**
+ * `only` restricts the poll to specific nominations — used for a tiebreaker,
+ * where the choices are the movies that drew, not the top of the board.
+ */
+export function openPoll(
+  channelId: string,
+  durationSeconds: number,
+  size: number,
+  only?: number[],
+): Poll {
   if (getOpenPoll(channelId)) throw new Error('A poll is already open');
-  const shortlist = listNominations(channelId, size);
+
+  const shortlist = only?.length
+    ? listNominations(channelId).filter((n) => only.includes(n.id))
+    : listNominations(channelId, size);
   if (shortlist.length < 2) throw new Error('Need at least 2 nominations to run a poll');
 
   const opened = now();
@@ -378,31 +397,78 @@ export function voterCount(channelId: string, pollId: number): number {
   return r.n;
 }
 
-/** Closes the poll and marks the winner. Ties break toward the longest-waiting nomination. */
-export function closePoll(channelId: string, pollId: number): Tally | null {
+/**
+ * Closes the poll. A draw at the top is reported as a tie rather than silently
+ * resolved: nothing is marked won, so the drawn movies stay on the board and a
+ * tiebreaker can include them.
+ */
+export function closePoll(channelId: string, pollId: number): CloseResult | null {
   const poll = getPoll(channelId, pollId);
   if (!poll || poll.status !== 'open') return null;
 
   const results = tally(channelId, pollId);
-  const winner = results[0] ?? null;
+  const top = results[0];
+  const drawn = top && top.votes > 0 ? results.filter((r) => r.votes === top.votes) : [];
+
+  const result: CloseResult =
+    drawn.length === 0
+      ? { outcome: 'empty' }
+      : drawn.length === 1
+        ? { outcome: 'winner', winner: drawn[0]! }
+        : { outcome: 'tie', tied: drawn };
 
   const tx = db.transaction(() => {
     db.prepare(
-      `UPDATE polls SET status = 'closed', closed_at = ?, winner_nomination_id = ?
+      `UPDATE polls SET status = 'closed', closed_at = ?, winner_nomination_id = ?, outcome = ?
        WHERE id = ? AND channel_id = ?`,
-    ).run(now(), winner?.nomination_id ?? null, pollId, channelId);
+    ).run(
+      now(),
+      result.outcome === 'winner' ? result.winner.nomination_id : null,
+      result.outcome,
+      pollId,
+      channelId,
+    );
 
-    if (winner) {
+    if (result.outcome === 'winner') {
       // Winner leaves the board; everyone else carries over with interest intact.
       db.prepare(`UPDATE nominations SET won_at = ? WHERE id = ? AND channel_id = ?`).run(
         now(),
-        winner.nomination_id,
+        result.winner.nomination_id,
         channelId,
       );
     }
   });
   tx();
-  return winner;
+  return result;
+}
+
+/** The movies that drew in a closed poll, in tally order. */
+export function tiedIn(channelId: string, pollId: number): Tally[] {
+  const poll = getPoll(channelId, pollId);
+  if (!poll || poll.outcome !== 'tie') return [];
+  const results = tally(channelId, pollId);
+  const top = results[0];
+  return top ? results.filter((r) => r.votes === top.votes) : [];
+}
+
+/** Ends a tie by declaring one of the drawn movies the winner. */
+export function settleTie(channelId: string, pollId: number, nominationId: number): Tally | null {
+  const drawn = tiedIn(channelId, pollId);
+  const chosen = drawn.find((t) => t.nomination_id === nominationId);
+  if (!chosen) return null;
+
+  const tx = db.transaction(() => {
+    db.prepare(
+      `UPDATE polls SET winner_nomination_id = ?, outcome = 'winner' WHERE id = ? AND channel_id = ?`,
+    ).run(nominationId, pollId, channelId);
+    db.prepare(`UPDATE nominations SET won_at = ? WHERE id = ? AND channel_id = ?`).run(
+      now(),
+      nominationId,
+      channelId,
+    );
+  });
+  tx();
+  return chosen;
 }
 
 // --- sessions ------------------------------------------------------------

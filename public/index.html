@@ -408,9 +408,54 @@ function renderVoting() {
     </div>`;
 }
 
+function tieBanner() {
+  const names = state.tie.map((t) => t.title);
+  const readable = names.length === 2
+    ? names.join(' and ')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `
+    <div class="pad">
+      <div class="tie-banner">
+        <div class="k">It's a tie</div>
+        <h2>${esc(readable)}</h2>
+        <p>${state.tie[0].votes} ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each — nothing has
+          been decided. ${esc(state.channel ?? 'The streamer')} will run a tiebreaker between these,
+          or call it.</p>
+        <div class="tie-choices">
+          ${state.tie.map((t) => `
+            <span class="tie-choice">
+              ${t.poster
+                ? `<img src="${esc(img(t.poster, 'w92'))}" alt="">`
+                : '<span class="ph"></span>'}
+              ${esc(t.title)}${t.year ? ` <span class="muted">${t.year}</span>` : ''}
+            </span>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderResults() {
   const w = state.winner;
   const max = Math.max(1, ...state.options.map((x) => x.votes));
+
+  if (state.tie.length > 1) {
+    const bars = `<div class="grid">${state.options.map((o) => `
+      <div class="tile">
+        <div class="poster" role="button" tabindex="0" data-detail="${o.nominationId}">
+          ${state.tie.some((t) => t.nominationId === o.nominationId)
+            ? '<span class="flag">Tied</span>' : ''}
+          ${posterEl(o)}
+          <div class="meta"><b>${esc(o.title)}</b><small>${o.year ?? ''}</small></div>
+        </div>
+        <div class="tally"><i style="width:${(o.votes / max) * 100}%"></i></div>
+        <div class="stat"><b>${o.votes}</b> ${o.votes === 1 ? 'vote' : 'votes'}</div>
+      </div>`).join('')}</div>`;
+    return `${tieBanner()}
+      <div class="pad"><div class="row-head"><h3>Final tally</h3></div></div>
+      ${bars}
+      ${nominateSection(true)}`;
+  }
+
   const head = w
     ? hero(w, '🏆 Tonight’s movie',
         `Won with <b>${w.votes}</b> of <b>${state.voters}</b> ${state.voters === 1 ? 'vote' : 'votes'}${w.year ? ` · ${w.year}` : ''}`,

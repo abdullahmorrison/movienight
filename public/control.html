@@ -108,6 +108,20 @@ function render() {
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
         <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.</p>
         <button class="btn red big" id="close">End poll now</button>
+      ` : state.tie.length > 1 ? `
+        <div class="eyebrow"><span class="dot live"></span> Tied — nothing decided yet</div>
+        <p class="lede"><b>${state.tie.map((t) => esc(t.title)).join(' vs ')}</b> —
+          ${state.tie[0].votes} ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each.
+          Run it again between just these, or call it yourself.</p>
+        <div class="durations">
+          <button class="btn cta" data-tiebreak="120">Tiebreaker · 2 min</button>
+          <button class="btn grey" data-tiebreak="60">Tiebreaker · 1 min</button>
+          <button class="btn grey" data-tiebreak="180">Tiebreaker · 3 min</button>
+        </div>
+        <p class="lede" style="margin:16px 0 8px">Or just pick one:</p>
+        ${state.tie.map((t) => `
+          <button class="btn ghost big" data-settle="${t.nominationId}"
+            style="margin-bottom:8px">Declare ${esc(t.title)} the winner</button>`).join('')}
       ` : `
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
@@ -142,6 +156,21 @@ function render() {
       <p class="muted">OBS browser source: <code>${location.origin}/overlay</code><br>
       Chat votes here: <code>${location.origin}/</code></p>
     </div>`;
+
+  $$('[data-tiebreak]').forEach((b) => {
+    b.onclick = async () => {
+      try { await post('/api/poll/tiebreak', { durationSeconds: Number(b.dataset.tiebreak) }); toast('Tiebreaker open.'); }
+      catch (e) { toast(e.message, true); }
+    };
+  });
+
+  $$('[data-settle]').forEach((b) => {
+    b.onclick = async () => {
+      try { const r = await post('/api/poll/settle', { nominationId: Number(b.dataset.settle) });
+            toast(`Winner: ${r.winner?.title ?? ''}`); }
+      catch (e) { toast(e.message, true); }
+    };
+  });
 
   $$('[data-open]').forEach((b) => {
     b.onclick = async () => {
