@@ -154,15 +154,18 @@ const closed = await req('POST', '/api/poll/close', streamer);
 check('closing reports the outcome', closed.body.outcome, 'winner');
 check('closing again is refused', (await req('POST', '/api/poll/close', streamer)).status, 409);
 check('nominating works again', (await req('POST', '/api/nominate', other, { title: 'Speed' })).status, 200);
-check('and vetoing works again', (await req('POST', `/api/veto/${n1.body.id}`, streamer, {})).status, 200);
+// The winner is still up at this point: nothing that edits the board is allowed
+// and the next poll has to wait until it is cleared.
+check('a new poll is refused while a result is up', (await req('POST', '/api/poll/open', streamer)).status, 409);
+check('vetoing is refused while a result is up', (await req('POST', `/api/veto/${n1.body.id}`, streamer, {})).status, 409);
+await req('POST', '/api/poll/dismiss', streamer);
+check('and works once it is cleared', (await req('POST', `/api/veto/${n1.body.id}`, streamer, {})).status, 200);
 check('a vetoed movie leaves the board',
   ((await req('GET', '/api/state')).body.nominations as any[]).some((n) => n.id === n1.body.id), false);
 
 console.log('\n— clearing the result —');
-check('the result is on the page', (await req('GET', '/api/state')).body.phase, 'results');
-check('the streamer clears it', (await req('POST', '/api/poll/dismiss', streamer)).status, 200);
-check('and the page moves on', (await req('GET', '/api/state')).body.phase, 'nominating');
-check('clearing twice is refused', (await req('POST', '/api/poll/dismiss', streamer)).status, 409);
+check('the previous section already cleared it', (await req('GET', '/api/state')).body.phase, 'nominating');
+check('clearing again is refused', (await req('POST', '/api/poll/dismiss', streamer)).status, 409);
 
 console.log('\n— cancelling a poll —');
 check('cancelling with no poll open is refused', (await req('POST', '/api/poll/cancel', streamer)).status, 409);

@@ -19,13 +19,9 @@
   /* Built for a phone in one hand while the stream runs, so the column stays
      narrow. Overriding --content keeps the header and the body on the same
      centre line, since both derive their width from it. */
-  :root { --content: 660px; }
-  .wrap { max-width: var(--content); margin-inline: auto; }
-  /* The page title already names the channel's purpose, and this column is too
-     narrow to carry the tag as well as both nav controls on one line. */
-  header.top h1 small { display: none; }
-  .durations { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
-  .durations .btn { padding: 15px 4px; font-size: 15px; }
+  /* A narrow column for the body only. The header keeps the full width so the
+     title and the nav are not crushed together in the middle of the screen. */
+  .wrap { max-width: 680px; margin-inline: auto; }
   .line { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .line:last-child { border-bottom: 0; }
   .line img { width: 42px; height: 63px; object-fit: cover; border-radius: 3px; flex: none; background: var(--surface-2); }
@@ -83,6 +79,7 @@ import { profileHtml, wireProfile } from '/profile.js';
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 let state = null;
+let duration = null;   // seconds, kept across re-renders
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
@@ -129,6 +126,32 @@ async function post(url, body) {
 function toast(m, err) {
   const t = $('#toast');
   if (t) { t.textContent = m; t.className = err ? 'toast err' : 'toast'; }
+}
+
+const MIN = 30, MAX = 600, STEP = 30;
+
+function durationPicker(label) {
+  const secs = duration ?? state.rules.pollDurationSeconds;
+  return `
+    <div class="picker">
+      <div class="head">
+        <span class="label">${label}</span>
+        <span class="value" id="dur-value">${clock(secs * 1000)}</span>
+      </div>
+      <input type="range" id="dur" min="${MIN}" max="${MAX}" step="${STEP}" value="${secs}"
+             aria-label="${label}">
+      <div class="ticks"><span>30s</span><span>5 min</span><span>10 min</span></div>
+    </div>`;
+}
+
+function wirePicker() {
+  const slider = $('#dur');
+  if (!slider) return;
+  duration = Number(slider.value);
+  slider.oninput = () => {
+    duration = Number(slider.value);
+    $('#dur-value').textContent = clock(duration * 1000);
+  };
 }
 
 const thumb = (m) => m.poster
@@ -191,11 +214,8 @@ function render() {
         <p class="lede"><b>${state.tie.map((t) => esc(t.title)).join(' vs ')}</b> —
           ${state.tie[0].votes} ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each.
           Run it again between just these, or call it yourself.</p>
-        <div class="durations">
-          <button class="btn cta" data-tiebreak="120">Tiebreaker · 2 min</button>
-          <button class="btn grey" data-tiebreak="60">Tiebreaker · 1 min</button>
-          <button class="btn grey" data-tiebreak="180">Tiebreaker · 3 min</button>
-        </div>
+        ${durationPicker('Tiebreaker length')}
+        <button class="btn cta big" id="tiebreak">Start the tiebreaker</button>
         <p class="lede" style="margin:16px 0 8px">Or just pick one:</p>
         ${state.tie.map((t) => `
           <button class="btn ghost big" data-settle="${t.nominationId}" data-title="${esc(t.title)}"
@@ -203,19 +223,19 @@ function render() {
       ` : `
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
-        <p class="lede">Opens a poll on the top ${state.rules.shortlistSize} by interest:
-          <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
-        <div class="durations">
-          <button class="btn grey" data-open="120">2 min</button>
-          <button class="btn cta" data-open="240">4 min</button>
-          <button class="btn grey" data-open="360">6 min</button>
-        </div>
         ${state.phase === 'results' ? `
-          <div class="sub-action">
-            <p class="lede">Last winner is still on the front page. It clears itself after
-              ${state.rules.resultsVisibleHours}h.</p>
-            <button class="btn ghost big" id="dismiss">Clear the result now</button>
-          </div>` : ''}
+          <p class="lede">Put this week away before starting the next vote — the winner is
+            still on the front page, and it clears itself after
+            ${state.rules.resultsVisibleHours}h anyway.</p>
+          <button class="btn cta big" id="dismiss">Clear the result</button>
+        ` : `
+          <p class="lede">Opens a vote on the top ${state.rules.shortlistSize} by interest:
+            <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
+          ${durationPicker('Voting time')}
+          <button class="btn cta big" id="start"
+            ${shortlist.length < 2 ? 'disabled title="At least two nominations are needed"' : ''}>
+            Start voting</button>
+        `}
       `}
       <div class="toast" id="toast"></div>
     </div>
@@ -230,11 +250,16 @@ function render() {
         </div>
       </div>` : ''}
 
-    <div class="card">
-      ${voting
-        ? `<div class="eyebrow">On the ballot — live</div>${ballot}`
-        : `<div class="eyebrow">The board — veto anything you can't or won't stream</div>${board}`}
-    </div>
+    ${voting
+      ? `<div class="card"><div class="eyebrow">On the ballot — live</div>${ballot}</div>`
+      : state.phase === 'results' || state.tie.length > 1
+        // A result is already decided; the board is next week's business and
+        // vetoing now would change nothing about it.
+        ? ''
+        : `<div class="card">
+             <div class="eyebrow">The board — veto anything you can't or won't stream</div>
+             ${board}
+           </div>`}
 
     <div class="card urls">
       <div class="eyebrow">Links</div>
@@ -257,12 +282,13 @@ function render() {
     catch (e) { toast(e.message, true); }
   };
 
-  $$('[data-tiebreak]').forEach((b) => {
-    b.onclick = async () => {
-      try { await post('/api/poll/tiebreak', { durationSeconds: Number(b.dataset.tiebreak) }); toast('Tiebreaker open.'); }
-      catch (e) { toast(e.message, true); }
-    };
-  });
+  wirePicker();
+
+  const tiebreakBtn = $('#tiebreak');
+  if (tiebreakBtn) tiebreakBtn.onclick = async () => {
+    try { await post('/api/poll/tiebreak', { durationSeconds: duration }); toast('Tiebreaker open.'); }
+    catch (e) { toast(e.message, true); }
+  };
 
   $$('[data-settle]').forEach((b) => {
     b.onclick = async () => {
@@ -280,12 +306,11 @@ function render() {
     };
   });
 
-  $$('[data-open]').forEach((b) => {
-    b.onclick = async () => {
-      try { await post('/api/poll/open', { durationSeconds: Number(b.dataset.open) }); toast('Poll open.'); }
-      catch (e) { toast(e.message, true); }
-    };
-  });
+  const startBtn = $('#start');
+  if (startBtn) startBtn.onclick = async () => {
+    try { await post('/api/poll/open', { durationSeconds: duration }); toast('Voting is open.'); }
+    catch (e) { toast(e.message, true); }
+  };
 
   const c = $('#close');
   if (c) c.onclick = async () => {

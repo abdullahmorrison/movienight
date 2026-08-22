@@ -24,6 +24,19 @@ const poll = await import('../src/poll.js');
 const CH = config.channel.id;
 let failures = 0;
 
+/**
+ * Opening a poll now insists the previous result has been put away, so the
+ * tests have to do what a streamer would: clear last week before starting.
+ */
+function freshPoll(seconds = 120, only?: number[]) {
+  const last = q.mostRecentPoll(CH);
+  if (last && last.status === 'closed' && !last.dismissed_at) {
+    if (last.outcome === 'tie') poll.settle(CH, q.tiedIn(CH, last.id)[0]!.nomination_id);
+    poll.dismiss(CH);
+  }
+  return poll.open(CH, seconds, only);
+}
+
 function check(label: string, actual: unknown, expected: unknown) {
   const a = JSON.stringify(actual);
   const e = JSON.stringify(expected);
@@ -170,7 +183,7 @@ const relock = q.nominate(CH, pick(winner!.title), users.dave);
 check('winner is locked out from re-nomination', relock.ok === false && relock.reason === 'locked', true);
 
 console.log('\n— restart mid-poll —');
-const p2 = poll.open(CH, 120);
+const p2 = freshPoll();
 q.castVote(CH, p2.id, users.alice, q.pollOptions(CH, p2.id)[0]!.nomination_id, 'web');
 poll.resume(CH); // simulates the process coming back up
 check('poll survives a restart', q.getOpenPoll(CH)?.id, p2.id);
@@ -215,7 +228,7 @@ q.addInterest(CH, alienId, u.c);
 check('going one better overtakes', order().indexOf('Alien') < order().indexOf('Solaris'), true);
 
 console.log('\n— one vote each —');
-const p3 = poll.open(CH, 120);
+const p3 = freshPoll();
 const opts = q.pollOptions(CH, p3.id);
 q.castVote(CH, p3.id, u.a, opts[0]!.nomination_id, 'web');
 await tick();
@@ -236,7 +249,7 @@ poll.close(CH);
 
 console.log('\n— ties —');
 
-const tp = poll.open(CH, 120);
+const tp = freshPoll();
 const tOpts = q.pollOptions(CH, tp.id);
 q.castVote(CH, tp.id, u.a, tOpts[0]!.nomination_id, 'web');
 q.castVote(CH, tp.id, u.b, tOpts[1]!.nomination_id, 'web');
@@ -269,7 +282,7 @@ check('the tiebreaker produces a winner', broken?.outcome, 'winner');
 check('and it leaves the board', q.listNominations(CH).some((n) => n.id === tOpts[0]!.nomination_id), false);
 
 // The streamer can also just call it instead of re-running.
-const sp = poll.open(CH, 120);
+const sp = freshPoll();
 const sOpts = q.pollOptions(CH, sp.id);
 q.castVote(CH, sp.id, u.a, sOpts[0]!.nomination_id, 'web');
 q.castVote(CH, sp.id, u.b, sOpts[1]!.nomination_id, 'web');
@@ -287,7 +300,7 @@ try {
 check('a settled tie cannot be settled again', refused, true);
 
 console.log('\n— no votes at all —');
-const ep = poll.open(CH, 120);
+const ep = freshPoll();
 check('an empty poll is neither a win nor a tie', poll.close(CH)?.outcome, 'empty');
 void ep;
 
@@ -295,16 +308,31 @@ console.log('\n— the board is frozen while voting —');
 
 // The guard itself lives in the HTTP and chat layers, which this script does
 // not exercise; what belongs here is the state they key off.
-poll.open(CH, 120);
+freshPoll();
 check('getOpenPoll reports the poll the guards check for', Boolean(q.getOpenPoll(CH)), true);
 poll.close(CH);
 check('nominations reopen once the poll ends', Boolean(q.getOpenPoll(CH)), false);
 const reopened = q.nominate(CH, movie('Predator', 106, 1987), u.c);
 check('and nominating works again', reopened.ok, true);
 
+console.log('\n— last week has to be put away first —');
+const gp = freshPoll();
+q.castVote(CH, gp.id, u.a, q.pollOptions(CH, gp.id)[0]!.nomination_id, 'web');
+poll.close(CH);
+let refusedOpen = false;
+try {
+  poll.open(CH, 120);
+} catch {
+  refusedOpen = true;
+}
+check('a new poll is refused while a result is up', refusedOpen, true);
+poll.dismiss(CH);
+check('and allowed once it is cleared', Boolean(poll.open(CH, 120)), true);
+poll.cancel(CH);
+
 console.log('\n— getting back to nominations —');
 
-const rp = poll.open(CH, 120);
+const rp = freshPoll();
 q.castVote(CH, rp.id, u.a, q.pollOptions(CH, rp.id)[0]!.nomination_id, 'web');
 poll.close(CH);
 check('a fresh result headlines the page', poll.snapshot(CH).phase, 'results');
@@ -314,7 +342,7 @@ check('clearing it returns to nominations', poll.snapshot(CH).phase, 'nominating
 check('and the winner stays in the history', q.recentWinners(CH).length > 0, true);
 
 // A draw must not be cleared away — it still needs resolving.
-const dp = poll.open(CH, 120);
+const dp = freshPoll();
 const dOpts = q.pollOptions(CH, dp.id);
 q.castVote(CH, dp.id, u.a, dOpts[0]!.nomination_id, 'web');
 q.castVote(CH, dp.id, u.b, dOpts[1]!.nomination_id, 'web');
@@ -354,7 +382,7 @@ const w3 = q.nominate(CH, movie('Gattaca', 782, 1997), u.d);
 const w3id = w3.ok ? w3.id : -1;
 q.addInterest(CH, w3id, u.a);
 q.addInterest(CH, w3id, u.b);
-const wp = poll.open(CH, 120);
+const wp = freshPoll();
 poll.close(CH);
 q.toggleInterest(CH, w3id, u.a);
 q.toggleInterest(CH, w3id, u.b);

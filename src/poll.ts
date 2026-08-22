@@ -150,6 +150,20 @@ export function open(
   durationSeconds = config.rules.pollDurationSeconds,
   only?: number[],
 ) {
+  // A finished result still headlining the page means the last night is not put
+  // away yet; starting another poll under it reads as though nothing happened.
+  // Tiebreakers pass `only` and are exempt — they are finishing that result.
+  if (!only) {
+    const last = q.latestPoll(channelId);
+    if (last && last.status === 'closed') {
+      throw new Error(
+        last.outcome === 'tie'
+          ? 'Settle the tie first, or run a tiebreaker.'
+          : 'Clear the last result before starting a new poll.',
+      );
+    }
+  }
+
   const poll = q.openPoll(channelId, durationSeconds, config.rules.shortlistSize, only);
   schedule(channelId, poll.id, poll.closes_at);
   broadcast(channelId);

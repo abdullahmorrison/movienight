@@ -25,6 +25,17 @@ const NOMINATIONS_CLOSED = 'Nominations are closed while voting is open. They re
 // take the movie off it — people could still vote for it and it could still
 // win. Close voting first.
 const VETO_CLOSED = 'Close voting before vetoing — the ballot is already fixed.';
+// And once a result is up, the board belongs to the next round rather than this
+// one, so there is nothing a veto could affect until it has been cleared.
+const VETO_SETTLED = 'Clear the last result before changing the board.';
+
+/** Why the board cannot be edited right now, or null when it can. */
+function boardLocked(): string | null {
+  if (q.getOpenPoll(CHANNEL)) return VETO_CLOSED;
+  const last = q.latestPoll(CHANNEL);
+  if (last && last.status === 'closed') return VETO_SETTLED;
+  return null;
+}
 
 function backfillAvatar(userId: string, login: string): void {
   if (avatarTried.has(userId)) return;
@@ -270,8 +281,9 @@ export function createServer(): http.Server {
   });
 
   app.post('/api/veto/:id', requireBroadcaster, (req, res) => {
-    if (q.getOpenPoll(CHANNEL)) {
-      res.status(409).json({ error: VETO_CLOSED });
+    const blocked = boardLocked();
+    if (blocked) {
+      res.status(409).json({ error: blocked });
       return;
     }
     const id = Number(req.params.id);
@@ -282,8 +294,9 @@ export function createServer(): http.Server {
   });
 
   app.post('/api/unveto/:id', requireBroadcaster, (req, res) => {
-    if (q.getOpenPoll(CHANNEL)) {
-      res.status(409).json({ error: VETO_CLOSED });
+    const blocked = boardLocked();
+    if (blocked) {
+      res.status(409).json({ error: blocked });
       return;
     }
     const ok = q.unveto(CHANNEL, Number(req.params.id));
