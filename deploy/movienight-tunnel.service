@@ -1,0 +1,15 @@
+# systemd --user unit: goes in ~/.config/systemd/user/.
+# Its own tunnel and its own config, so restarting it cannot disturb any other
+# tunnel running on the same machine.
+[Unit]
+Description=Cloudflare Tunnel for Movie Night
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/movienight.yml tunnel run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

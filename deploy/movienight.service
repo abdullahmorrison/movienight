@@ -1,37 +1,21 @@
-# Copy to /etc/systemd/system/movienight.service
-#
-# Assumes:
-#   - the repo is checked out at /srv/movienight
-#   - /srv/movienight/.env exists (dotenv reads it from WorkingDirectory)
-#   - node is a system-wide install, not nvm (a system user cannot read ~/.nvm)
-
+# systemd --user unit: goes in ~/.config/systemd/user/.
+# Runs as you, so it needs no root and cannot touch anything else on the box.
 [Unit]
 Description=Movie Night
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-User=movienight
-Group=movienight
-WorkingDirectory=/srv/movienight
-ExecStart=/usr/bin/node dist/index.js
+WorkingDirectory=%h/movienight
+# Pinned on purpose. nvm has no stable "current" path, so a Node upgrade means
+# editing this line — better than a service that silently starts on the wrong one.
+ExecStart=%h/.nvm/versions/node/v22.23.2/bin/node dist/index.js
 Restart=always
 RestartSec=5
 
-# The point of running it here rather than in a container: it cannot starve
-# anything else on the box, and it cannot write outside its own directory.
-MemoryMax=512M
-CPUQuota=50%
-
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/srv/movienight
-ProtectKernelTunables=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
+# Shares the machine with other things, so it gets a ceiling.
+MemoryMax=1G
+CPUQuota=50%%
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
