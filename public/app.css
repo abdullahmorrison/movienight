@@ -512,42 +512,49 @@ code {
    rather than the #9146ff brand purple -- that measures 4.07:1 on this ground, under
    the 4.5 minimum for text this size. */
 .site-footer {
-  margin-top: 46px;
-  padding-top: 26px;
-  border-top: 1px solid var(--line);
+  margin-top: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   text-align: center;
 }
 .site-footer p { margin: 0; }
+.site-footer .muted { margin-bottom: 12px; }
 
-/* Laying the line out as a flex row rather than leaning on vertical-align:
-   the mark and the words then share one centre line at any font size. */
-.madeby,
-.oss {
+/* Flex rows rather than vertical-align: the mark and the words then share one
+   centre line at any font size. */
+.oss,
+.madeby {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
-  font-size: 13.5px;
-  color: var(--muted);
+  font-size: 13px;
+  color: var(--dim);
   line-height: 1.5;
 }
-.madeby a,
 .oss a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.oss a:hover { color: var(--text); }
+
+/* Pinned to Twitch's purple rather than var(--accent): the red build swaps that
+   out, and here the mark and the colour are both saying "Twitch". #a970ff rather
+   than the #9146ff brand purple -- that measures 4.07:1 on this ground, under
+   the 4.5 minimum for text this size. */
+.madeby a {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #a970ff;
   font-weight: 700;
   text-decoration: none;
 }
-.madeby a:hover,
-.oss a:hover { text-decoration: underline; }
-.madeby a:focus-visible,
-.oss a:focus-visible { outline: 2px solid #a970ff; outline-offset: 2px; border-radius: 4px; }
-.madeby svg,
-.oss svg { width: 1.05em; height: 1.05em; flex: none; fill: currentColor; }
+.madeby a:hover { text-decoration: underline; }
+.oss a:focus-visible,
+.madeby a:focus-visible { outline: 2px solid #a970ff; outline-offset: 2px; border-radius: 3px; }
+.madeby svg { width: 1.05em; height: 1.05em; flex: none; fill: currentColor; }
