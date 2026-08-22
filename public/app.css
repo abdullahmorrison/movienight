@@ -592,7 +592,17 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 }
 .copy-row input:focus { outline: none; border-color: var(--muted); }
 .copy-row .btn { flex: none; padding: 12px 18px; }
-.copy-hint { margin: 10px 0 0; font-size: 13px; color: var(--dim); }
+.copy-hint { margin: 12px 0 0; font-size: 13px; color: var(--dim); }
+.copy-hint b { color: var(--muted); }
+
+/* Setup steps: one action per line, scannable without reading. */
+.steps-list {
+  margin: 14px 0 0; padding: 0 0 0 20px;
+  font-size: 13.5px; color: var(--muted); line-height: 1.5;
+}
+.steps-list li { margin-bottom: 5px; }
+.steps-list li::marker { color: var(--dim); font-weight: 700; }
+.steps-list b { color: var(--text); font-weight: 700; }
 
 /* ---------- panels ---------- */
 

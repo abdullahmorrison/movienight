@@ -125,7 +125,6 @@
 <script type="module">
 let state = null;
 const params = new URLSearchParams(location.search);
-const ALWAYS = params.has('always');
 let drainingFor = null;   // closedAt of the result currently draining
 if (params.has('solid')) document.body.style.background = '#141414';
 
@@ -155,11 +154,9 @@ function tiles(items, value, leadValue, noun) {
 /**
  * On screen while a vote runs, and for a spell after it settles so the result
  * lands — then gone, so the source can stay in the scene all stream.
- * `?always=1` keeps it up permanently, board and all.
  */
 function shouldShow() {
   if (!state) return false;
-  if (ALWAYS) return true;
   if (state.phase === 'voting') return true;
   if (state.phase !== 'results') return false;
   const closedAt = state.poll?.closedAt;
@@ -174,7 +171,7 @@ function applyVisibility() {
 
   // While a result is up, the top rule drains to show how long it has left.
   const closedAt = state?.phase === 'results' ? state.poll?.closedAt : null;
-  const revealing = Boolean(closedAt) && !ALWAYS;
+  const revealing = Boolean(closedAt);
   p.classList.toggle('revealing', revealing);
 
   // Started once per result, not per tick: restarting the animation every
