@@ -20,8 +20,9 @@ somebody else backs it, and an unbacked one can be taken back.
 freezes: nothing can be nominated, backed, taken back or vetoed while it runs.
 One vote each, movable until the timer ends. Most votes wins.
 
-The running tally is shown to viewers by default; the streamer can turn that off
-so nobody piles onto whatever is already ahead. The counts are stripped from the
+The running tally is shown to viewers by default; **Hide vote counts from
+viewers** on the controls turns it off so nobody piles onto whatever is already
+ahead. The counts are stripped from the
 payload rather than hidden in the page, and the final result is always shown.
 
 Ties are reported, not broken quietly — the drawn films stay on the board and the

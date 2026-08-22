@@ -290,11 +290,13 @@ function render() {
     <div class="card">
       <div class="eyebrow">While the vote runs</div>
       <label class="toggle">
-        <input type="checkbox" id="share-tally" ${state.showTally ? 'checked' : ''}>
+        <!-- The setting is stored as showTally; the box asks the opposite. -->
+        <input type="checkbox" id="hide-votes" ${state.showTally ? '' : 'checked'}>
         <span>
-          <b>Show the running tally to viewers</b>
-          <small>Off keeps the counts to yourself until voting closes, so nobody
-            piles onto whatever is already ahead. The final result is always shown.</small>
+          <b>Hide vote counts from viewers</b>
+          <small>Keeps the running count to yourself until voting closes, so nobody
+            piles onto whatever is already ahead. The final result is always shown,
+            and so is how many people have voted.</small>
         </span>
       </label>
     </div>
@@ -319,10 +321,15 @@ function render() {
       </div>
     </div>`;
 
-  const shareBox = $('#share-tally');
-  if (shareBox) shareBox.onchange = async () => {
-    try { await post('/api/settings/tally', { show: shareBox.checked }); }
-    catch (e) { shareBox.checked = !shareBox.checked; toast(e.message, true); }
+  const hideBox = $('#hide-votes');
+  if (hideBox) hideBox.onchange = async () => {
+    try {
+      await post('/api/settings/tally', { show: !hideBox.checked });
+      toast(hideBox.checked ? 'Counts hidden from viewers.' : 'Counts visible to viewers.');
+    } catch (e) {
+      hideBox.checked = !hideBox.checked;
+      toast(e.message, true);
+    }
   };
 
   wireCopy('copy-overlay', 'overlay-url');
