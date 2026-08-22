@@ -69,7 +69,7 @@ Set `BOT_ENABLED=false` to run the site without chat.
 |------------|------------|------|
 | `/`        | viewers    | Search and nominate, add interest, vote |
 | `/overlay` | OBS        | Live bars + timer, transparent background |
-| `/control` | streamer   | Open/close polls, veto. Built for a phone |
+| `/poll-controls` | streamer | Open/close the vote, break ties, veto. Built for a phone |
 
 `/overlay?solid=1` gives it a background for previewing outside OBS.
 

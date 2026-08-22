@@ -223,7 +223,9 @@ export function createServer(): http.Server {
   });
 
   app.use(express.static(publicDir));
-  app.get('/control', (_req, res) => res.sendFile(path.join(publicDir, 'control.html')));
+  app.get('/poll-controls', (_req, res) => res.sendFile(path.join(publicDir, 'poll-controls.html')));
+  // Anyone who bookmarked the old path still lands in the right place.
+  app.get('/control', (_req, res) => res.redirect(301, '/poll-controls'));
   app.get('/overlay', (_req, res) => res.sendFile(path.join(publicDir, 'overlay.html')));
 
   const server = http.createServer(app);

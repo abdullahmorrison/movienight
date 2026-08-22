@@ -21,7 +21,7 @@ const server = createServer();
 server.listen(config.port, () => {
   console.log(`[web] http://localhost:${config.port}`);
   console.log(`[web] overlay  /overlay`);
-  console.log(`[web] control  /control`);
+  console.log(`[web] controls /poll-controls`);
   poll.resume(config.channel.id);
 });
 
