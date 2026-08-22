@@ -20,9 +20,19 @@
   /* Built for a phone in one hand while the stream runs, so the column stays
      narrow. Overriding --content keeps the header and the body on the same
      centre line, since both derive their width from it. */
-  /* A narrow column for the body only. The header keeps the full width so the
-     title and the nav are not crushed together in the middle of the screen. */
-  .wrap { max-width: 680px; margin-inline: auto; }
+  .wrap { max-width: 1120px; margin-inline: auto; }
+
+  /* Controls on the left, the things you set up once beside them. Stacks below
+     the point where two columns would each be too narrow to use. */
+  .controls-layout {
+    display: grid; gap: 18px; align-items: start;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  }
+  @media (max-width: 940px) {
+    .controls-layout { grid-template-columns: minmax(0, 1fr); }
+    .wrap { max-width: 680px; }
+  }
+  .controls-layout .card:last-child { margin-bottom: 0; }
   .line { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .line:last-child { border-bottom: 0; }
   .line img { width: 42px; height: 63px; object-fit: cover; border-radius: 3px; flex: none; background: var(--surface-2); }
@@ -222,6 +232,8 @@ function render() {
     : '<div class="empty">No nominations yet.</div>';
 
   $('#main').innerHTML = `
+    <div class="controls-layout">
+      <div class="col-main">
     <div class="card">
       ${voting ? `
         <div class="eyebrow"><span class="dot live"></span> Voting open ·
@@ -286,7 +298,9 @@ function render() {
              <div class="eyebrow">The board — veto anything you can't or won't stream</div>
              ${board}
            </div>`}
+      </div>
 
+      <div class="col-side">
     <div class="card">
       <div class="eyebrow">While the vote runs</div>
       <label class="toggle">
@@ -321,6 +335,8 @@ function render() {
         <input type="text" id="site-url" readonly value="${location.origin}/"
                aria-label="Vote page URL">
         <button class="btn grey" id="copy-site">Copy</button>
+      </div>
+    </div>
       </div>
     </div>`;
 
