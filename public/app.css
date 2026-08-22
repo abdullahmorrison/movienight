@@ -294,6 +294,42 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 }
 .trailer-link:hover { background: rgba(109,109,110,.85); }
 
+/* ---------- nomination slots ---------- */
+
+.slot-meter {
+  display: inline-flex; align-items: center; gap: 9px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 15px 7px 12px; background: var(--surface);
+  font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap;
+}
+.slot-meter.full { border-color: var(--accent); background: rgba(145, 70, 255, .12); }
+.pips { display: inline-flex; gap: 5px; }
+.pip {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--dim); box-sizing: border-box;
+}
+.pip.on { background: var(--accent); border-color: var(--accent); }
+
+.slots-full {
+  border: 1px solid var(--accent); border-radius: 6px;
+  background: rgba(145, 70, 255, .09);
+  padding: 20px; max-width: 560px;
+}
+.slots-full h4 { margin: 0 0 4px; font-size: 17px; font-weight: 800; letter-spacing: -.015em; }
+.slots-full p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+.slot-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--line);
+}
+.slot-row img { width: 38px; height: 57px; object-fit: cover; border-radius: 3px; flex: none; }
+.slot-row .ph {
+  width: 38px; height: 57px; border-radius: 3px; flex: none;
+  background: linear-gradient(160deg, #262626, #161616);
+}
+.slot-row .t { flex: 1; min-width: 0; }
+.slot-row .t b { display: block; font-size: 14.5px; }
+.slot-row .t small { color: var(--muted); font-size: 12.5px; }
+
 /* ---------- search ---------- */
 
 .search { position: relative; max-width: 560px; }

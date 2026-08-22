@@ -281,17 +281,8 @@ function openDetail(id) {
   const want = $('[data-detail-want]');
   if (want) want.onclick = () => toggleWant(id);
 
-  const drop = $('[data-withdraw]');
-  if (drop) drop.onclick = async () => {
-    try {
-      await post(`/api/nominate/${id}/withdraw`);
-      closeDetail();
-      await refresh();
-      toast('Nomination taken back.');
-    } catch (e) {
-      toast(e.message, true);
-    }
-  };
+  const drop = $('#detail [data-withdraw]');
+  if (drop) drop.onclick = () => withdraw(id, true);
 
   const vote = $('[data-detail-vote]');
   if (vote) vote.onclick = () => {
@@ -382,6 +373,42 @@ function ballotTile(o) {
 
 /* ---------- sections ---------- */
 
+function slotMeter(used, cap) {
+  const pips = Array.from({ length: cap }, (_, i) => `<span class="pip ${i < used ? 'on' : ''}"></span>`).join('');
+  return `<span class="slot-meter ${used >= cap ? 'full' : ''}">
+    <span class="pips">${pips}</span>${used} of ${cap} used</span>`;
+}
+
+async function withdraw(id, fromDialog = false) {
+  try {
+    await post(`/api/nominate/${id}/withdraw`);
+    if (fromDialog) closeDetail();
+    await refresh();
+    toast('Nomination taken back — that slot is free again.');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+/** Shown in place of the search box, with the way out attached to it. */
+function slotsFull(mine) {
+  return `
+    <div class="slots-full">
+      <h4>Both your nomination slots are in use</h4>
+      <p>Take one back to nominate something else — or leave them, and they free up
+        on their own as soon as someone else wants them.</p>
+      ${mine.map((n) => `
+        <div class="slot-row">
+          ${n.poster ? `<img src="${esc(img(n.poster, 'w92'))}" alt="">` : '<span class="ph"></span>'}
+          <span class="t">
+            <b>${esc(n.title)}</b>
+            <small>${n.year ?? ''}${n.year ? ' · ' : ''}nobody else wants it yet</small>
+          </span>
+          <button class="btn grey" data-withdraw="${n.id}">Take back</button>
+        </div>`).join('')}
+    </div>`;
+}
+
 function searchBox() {
   return `
     <div class="search">
@@ -413,14 +440,11 @@ function nominateSection(withSteps = false) {
       ${withSteps ? steps() : ''}
       <div class="row-head">
         <h3>Nominate a movie</h3>
-        <span class="note">${state.me
-          ? `${mine.length} of ${state.rules.nominationsPerUser} slots used${
-              mine.length >= state.rules.nominationsPerUser
-                ? ' — take one back, or wait for someone to want it'
-                : ''}`
-          : `Max ${state.rules.nominationsPerUser} nominations each`}</span>
+        ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
       </div>
-      ${searchBox()}
+      ${state.me && mine.length >= state.rules.nominationsPerUser
+        ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
+        : searchBox()}
       <div class="row-head">
         <h3>Nominated so far</h3>
         <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote</span>
@@ -660,6 +684,10 @@ function render() {
     : 'In chat: <code>!nominate &lt;title&gt;</code> · <code>!movies</code> · <code>!interest &lt;id&gt;</code> · <code>!trailer &lt;id&gt;</code>';
 
   wireSearch();
+
+  $$('#main [data-withdraw]').forEach((b) => {
+    b.onclick = () => withdraw(Number(b.dataset.withdraw));
+  });
 
   $$('[data-interest]').forEach((b) => {
     b.onclick = (e) => {
