@@ -203,10 +203,6 @@ function render() {
       ` : `
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
-        ${state.phase === 'results' ? `
-          <p class="lede">The winner is on the front page for now. It clears itself after
-            ${state.rules.resultsVisibleHours}h, or
-            <button class="linkish" id="dismiss">clear it now</button>.</p>` : ''}
         <p class="lede">Opens a poll on the top ${state.rules.shortlistSize} by interest:
           <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
         <div class="durations">
@@ -214,6 +210,12 @@ function render() {
           <button class="btn cta" data-open="240">4 min</button>
           <button class="btn grey" data-open="360">6 min</button>
         </div>
+        ${state.phase === 'results' ? `
+          <div class="sub-action">
+            <p class="lede">Last winner is still on the front page. It clears itself after
+              ${state.rules.resultsVisibleHours}h.</p>
+            <button class="btn ghost big" id="dismiss">Clear the result now</button>
+          </div>` : ''}
       `}
       <div class="toast" id="toast"></div>
     </div>
@@ -242,6 +244,15 @@ function render() {
 
   const dismissBtn = $('#dismiss');
   if (dismissBtn) dismissBtn.onclick = async () => {
+    const ok = await confirmAction({
+      glyph: '🧹',
+      title: 'Clear the result?',
+      body: `${state.winner ? esc(state.winner.title) : 'The winner'} comes off the front page and `
+        + 'it goes back to taking nominations. It stays recorded as a past winner either way.',
+      verb: 'Clear it',
+      danger: false,
+    });
+    if (!ok) return;
     try { await post('/api/poll/dismiss'); toast('Back to nominations.'); }
     catch (e) { toast(e.message, true); }
   };
