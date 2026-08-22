@@ -297,33 +297,33 @@ function closeDetail() { detailId = null; $('#detail').hidden = true; }
 
 /* ---------- how it works ---------- */
 
+/**
+ * Only ever drawn during nominations now, so it explains what is happening and
+ * what comes next rather than tracking a phase. It stays because without it
+ * people read marking interest as having voted.
+ */
 function steps() {
-  const voting = state.phase === 'voting';
   return `
     <div class="steps">
-      <div class="step ${voting ? 'done' : 'on'}">
-        <span class="n">${voting ? '✓' : '1'}</span>
+      <div class="step on">
+        <span class="n">1</span>
         <span class="txt">
-          <b>Nominate what you want${voting
-            ? '<span class="now shut">Closed</span>'
-            : '<span class="now">You are here</span>'}</b>
-          <small>${voting
-            ? 'The board is locked while voting runs. Nominations reopen as soon as the poll ends.'
-            : `Open all week. The ${state.rules.shortlistSize} most wanted become the
-               choices you vote on. <strong>This part is not the vote.</strong>`}</small>
+          <b>Nominate what you want<span class="now">You are here</span></b>
+          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the
+            choices you vote on. <strong>This part is not the vote.</strong></small>
         </span>
       </div>
-      <div class="step ${voting ? 'on' : ''}">
+      <div class="step">
         <span class="n">2</span>
         <span class="txt">
-          <b>Vote live on stream${voting ? '<span class="now">You are here</span>' : ''}</b>
-          <small>${voting
-            ? 'Voting is open right now — pick every movie you would happily watch.'
-            : `${esc(state.channel ?? 'The streamer')} opens a timed poll on stream. That is the real vote.`}</small>
+          <b>Vote live on stream</b>
+          <small>${esc(state.channel ?? 'The streamer')} opens a timed vote on stream.
+            That is the real one, and this page turns into it.</small>
         </span>
       </div>
     </div>`;
 }
+
 
 /* ---------- tiles ---------- */
 
@@ -492,7 +492,6 @@ function renderVoting() {
 
   return `${head}
     <div class="pad">
-      ${steps()}
       <div class="row-head">
         <h3>Pick one movie</h3>
         <span class="note">Click a poster, or type its command in chat. You can change it until time runs out.</span>
@@ -555,7 +554,8 @@ function renderResults() {
     return `${tieBanner()}
       <div class="pad"><div class="row-head"><h3>Final tally</h3></div></div>
       ${bars}
-      ${nominateSection(true)}`;
+      <div class="pad"><p class="lede">Nominations reopen once
+        ${esc(state.channel ?? 'the streamer')} settles this.</p></div>`;
   }
 
   const head = w
@@ -580,7 +580,8 @@ function renderResults() {
   return `${head}
     <div class="pad"><div class="row-head"><h3>Final tally</h3></div></div>
     ${finals}
-    ${nominateSection(true)}`;
+    <div class="pad"><p class="lede">That's this one settled. Nominations for next time
+      reopen once ${esc(state.channel ?? 'the streamer')} clears the result.</p></div>`;
 }
 
 /* ---------- search ---------- */

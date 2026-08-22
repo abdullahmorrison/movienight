@@ -415,8 +415,6 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .step.on .n { background: var(--accent); color: #fff; }
-.step.done .n { background: var(--surface-3); color: var(--text); }
-.step .now.shut { background: var(--surface-3); color: var(--muted); }
 
 /* ---------- tie ---------- */
 
