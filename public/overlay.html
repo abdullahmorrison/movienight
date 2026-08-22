@@ -17,12 +17,22 @@
   /* Transparent for OBS Browser Source. Add ?solid=1 to preview elsewhere. */
   body { margin: 0; background: transparent; color: #fff; }
 
+  /* Hidden unless there is something to say, so the browser source can be left
+     on permanently. Transformed rather than display-toggled, so it animates. */
   .panel {
     width: 800px; padding: 22px 24px; border-radius: 6px;
     background: rgba(10, 10, 10, .9);
     border: 1px solid rgba(255, 255, 255, .1);
     border-top: 3px solid var(--accent);
     box-shadow: 0 22px 60px rgba(0,0,0,.7);
+    opacity: 0;
+    transform: translateY(26px) scale(.97);
+    transition: opacity .45s ease, transform .45s cubic-bezier(.2, .8, .3, 1);
+    will-change: opacity, transform;
+  }
+  .panel.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .panel { transition-duration: .01ms; }
   }
   .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 16px; }
   .head h1 {
@@ -95,7 +105,9 @@
 </script>
 <script type="module">
 let state = null;
-if (new URLSearchParams(location.search).has('solid')) document.body.style.background = '#141414';
+const params = new URLSearchParams(location.search);
+const ALWAYS = params.has('always');
+if (params.has('solid')) document.body.style.background = '#141414';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
@@ -120,9 +132,30 @@ function tiles(items, value, leadValue, noun) {
   }).join('');
 }
 
+/**
+ * On screen while a vote runs, and for a spell after it settles so the result
+ * lands — then gone, so the source can stay in the scene all stream.
+ * `?always=1` keeps it up permanently, board and all.
+ */
+function shouldShow() {
+  if (!state) return false;
+  if (ALWAYS) return true;
+  if (state.phase === 'voting') return true;
+  if (state.phase !== 'results') return false;
+  const closedAt = state.poll?.closedAt;
+  if (!closedAt) return false;
+  return Date.now() - closedAt < (state.rules.revealSeconds ?? 20) * 1000;
+}
+
+function applyVisibility() {
+  const p = document.getElementById('panel');
+  if (p) p.classList.toggle('on', shouldShow());
+}
+
 function render() {
   const p = document.getElementById('panel');
   if (!state) return;
+  applyVisibility();
 
   if (state.phase === 'voting') {
     const left = state.poll.closesAt - Date.now();
@@ -213,6 +246,8 @@ setInterval(() => {
     t.textContent = clock(left);
     t.classList.toggle('urgent', left < 30000);
   }
+  // Drives the exit too: nothing pushes an update when the reveal simply ages out.
+  applyVisibility();
 }, 250);
 
 function connect() {

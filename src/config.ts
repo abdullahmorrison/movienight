@@ -52,6 +52,8 @@ export const config = {
     // How long the winner stays on the front page before it goes back to
     // taking nominations for next time.
     resultsVisibleHours: num('RESULTS_VISIBLE_HOURS', 12),
+    // How long the overlay keeps the winner on screen before it slides away.
+    revealSeconds: num('OVERLAY_REVEAL_SECONDS', 20),
   },
 
   dbPath: process.env.DB_PATH ?? './movienight.db',

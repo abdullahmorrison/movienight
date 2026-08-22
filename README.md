@@ -62,6 +62,10 @@ posts. `BOT_ENABLED=false` turns it off entirely.
 | `/poll-controls` | streamer | Start and end votes, break ties, veto. Built for a phone |
 | `/overlay` | OBS | Live bars and timer on a transparent background |
 
+The overlay is meant to be left on: it stays invisible until a vote opens,
+slides in, holds the winner for `OVERLAY_REVEAL_SECONDS` after it settles, then
+slides away. `?always=1` keeps it on screen permanently, nominations included.
+
 `/overlay?solid=1` previews the overlay outside OBS. `?accent=red` on any page
 swaps Twitch purple for a streaming-service red, remembered per browser.
 
@@ -87,7 +91,7 @@ Pass the channel id to `dev-login` for streamer access.
 ## Settings
 
 In `.env`: `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURATION_SECONDS`,
-`REPEAT_LOCKOUT_WEEKS`, `RESULTS_VISIBLE_HOURS`.
+`REPEAT_LOCKOUT_WEEKS`, `RESULTS_VISIBLE_HOURS`, `OVERLAY_REVEAL_SECONDS`.
 
 ## Notes
 
