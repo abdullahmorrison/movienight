@@ -229,12 +229,17 @@ function render() {
             ${state.rules.resultsVisibleHours}h anyway.</p>
           <button class="btn cta big" id="dismiss">Clear the result</button>
         ` : `
-          <p class="lede">Opens a vote on the top ${state.rules.shortlistSize} by interest:
-            <b>${shortlist.map((n) => esc(n.title)).join(', ') || 'nothing yet'}</b></p>
+          ${shortlist.length < 2
+            ? `<p class="lede">A vote needs at least two movies to choose between, and
+                 ${shortlist.length === 1
+                   ? `only <b>${esc(shortlist[0].title)}</b> is on the board.`
+                   : 'the board is empty.'}
+                 ${state.channel ? `Send people to ${esc(location.host)} to nominate.` : ''}</p>`
+            : `<p class="lede">Opens a vote on the top ${state.rules.shortlistSize} by interest:
+                 <b>${shortlist.map((n) => esc(n.title)).join(', ')}</b></p>`}
           ${durationPicker('Voting time')}
-          <button class="btn cta big" id="start"
-            ${shortlist.length < 2 ? 'disabled title="At least two nominations are needed"' : ''}>
-            Start voting</button>
+          <button class="btn cta big" id="start" ${shortlist.length < 2 ? 'disabled' : ''}>
+            ${shortlist.length < 2 ? 'Waiting for more nominations' : 'Start voting'}</button>
         `}
       `}
       <div class="toast" id="toast"></div>

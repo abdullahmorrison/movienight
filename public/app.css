@@ -25,6 +25,8 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 
+/* Column layout so the footer sits at the bottom of the viewport on short
+   pages instead of floating halfway up. */
 body {
   margin: 0;
   background: var(--bg);
@@ -32,9 +34,13 @@ body {
   font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   line-height: 1.45;
   min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
-.wrap { width: 100%; padding: 0 0 80px; }
+.wrap { width: 100%; flex: 1; display: flex; flex-direction: column; }
+.wrap > main { flex: 1; }
 /* Sections centre themselves so the hero can run edge to edge between them. */
 .pad, .grid, header.top .top-inner, .hero .inner {
   max-width: var(--content); margin-inline: auto;
@@ -621,7 +627,11 @@ code {
    rather than the #9146ff brand purple -- that measures 4.07:1 on this ground, under
    the 4.5 minimum for text this size. */
 .site-footer {
-  margin-top: 52px;
+  /* auto pushes it down when the page is short; padding keeps it clear of the
+     content when the page is tall. */
+  margin-top: auto;
+  padding-top: 56px;
+  padding-bottom: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
