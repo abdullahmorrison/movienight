@@ -297,32 +297,6 @@ function closeDetail() { detailId = null; $('#detail').hidden = true; }
 
 /* ---------- how it works ---------- */
 
-/**
- * Only ever drawn during nominations now, so it explains what is happening and
- * what comes next rather than tracking a phase. It stays because without it
- * people read marking interest as having voted.
- */
-function steps() {
-  return `
-    <div class="steps">
-      <div class="step on">
-        <span class="n">1</span>
-        <span class="txt">
-          <b>Nominate what you want<span class="now">You are here</span></b>
-          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the
-            choices you vote on. <strong>This part is not the vote.</strong></small>
-        </span>
-      </div>
-      <div class="step">
-        <span class="n">2</span>
-        <span class="txt">
-          <b>Vote live on stream</b>
-          <small>${esc(state.channel ?? 'The streamer')} opens a timed vote on stream.
-            That is the real one, and this page turns into it.</small>
-        </span>
-      </div>
-    </div>`;
-}
 
 
 /* ---------- tiles ---------- */
@@ -445,7 +419,7 @@ function myNominations() {
     : [];
 }
 
-function nominateSection(withSteps = false) {
+function nominateSection() {
   const mine = myNominations();
   const board = state.nominations.length
     ? `<div class="grid">${state.nominations.map(nomTile).join('')}</div>`
@@ -453,7 +427,6 @@ function nominateSection(withSteps = false) {
 
   return `
     <div class="pad">
-      ${withSteps ? steps() : ''}
       <div class="row-head">
         <h3>Nominate a movie</h3>
         ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
@@ -463,7 +436,8 @@ function nominateSection(withSteps = false) {
         : searchBox() + (state.me ? slotsSpare(mine) : '')}
       <div class="row-head">
         <h3>Nominated so far</h3>
-        <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote</span>
+        <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote
+          when ${esc(state.channel ?? 'the streamer')} opens it on stream</span>
       </div>
     </div>
     ${board}`;
@@ -472,7 +446,7 @@ function nominateSection(withSteps = false) {
 function renderNominating() {
   // No hero here: a full-bleed backdrop reads as "this is the movie", and
   // during nominations nothing is decided.
-  return nominateSection(true);
+  return nominateSection();
 }
 
 function renderVoting() {
