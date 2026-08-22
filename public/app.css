@@ -235,9 +235,15 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 .row-head .note { color: var(--dim); font-size: 13px; }
 
 .lede { color: var(--muted); font-size: 14px; margin: 0 0 16px; max-width: 70ch; }
-/* Sits above whatever the current phase is, so it stays quiet. */
-.intro { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 60ch; }
-.intro b { color: var(--text); font-weight: 700; }
+/* A hero for the phases with no movie to show yet: same type scale as .hero,
+   no artwork, since nothing has been decided to put behind it. */
+.intro-hero { padding: clamp(24px, 4.5vw, 44px) 0 clamp(6px, 1.5vw, 14px); }
+.intro-hero h2 {
+  font-size: clamp(27px, 5.2vw, 46px); margin: 0 0 14px;
+  font-weight: 900; letter-spacing: -.03em; line-height: 1.04;
+}
+.intro-hero h2 b { color: var(--accent); font-weight: 900; }
+.intro-hero p { color: var(--muted); font-size: 16px; margin: 0; max-width: 52ch; }
 .lede b { color: var(--text); }
 .muted { color: var(--muted); font-size: 13.5px; }
 

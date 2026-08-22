@@ -718,12 +718,24 @@ function pastWinners() {
 /* ---------- render ---------- */
 
 /**
- * One line saying what this is. Most people arrive mid-vote from a link read
- * out on stream, with no idea what they have opened, so it shows in every phase.
+ * Says what this is, for the people who arrive from a link read out on stream
+ * with no idea what they have opened. Carries the page while there is no movie
+ * to put behind it; once one wins, the winner's hero takes over and this goes.
  */
-function intro() {
-  return `<div class="pad"><p class="intro">Help <b>${esc(state.channel ?? 'the streamer')}</b>
-    pick a movie to watch for movie night.</p></div>`;
+function introHero() {
+  const who = esc(state.channel ?? 'the streamer');
+  const line = state.phase === 'voting'
+    ? 'Voting is live. Pick one — most votes wins, and that is what gets watched.'
+    : `Nominate what you want to see and back the ones you like. The top
+       ${state.rules.shortlistSize} go up for a live vote on stream.`;
+
+  return `
+    <section class="intro-hero">
+      <div class="pad">
+        <h2>Help <b>${who}</b> pick the movie</h2>
+        <p>${line}</p>
+      </div>
+    </section>`;
 }
 
 function render() {
@@ -737,7 +749,9 @@ function render() {
     : state.phase === 'results' ? renderResults()
     : renderNominating();
   // History belongs on the page whatever phase it is in.
-  main.innerHTML = intro() + body + pastWinners();
+  // Not on results: the winner's hero is the page then, and two heroes fight.
+  const lead = state.phase === 'results' ? '' : introHero();
+  main.innerHTML = lead + body + pastWinners();
 
   // Only worth saying while it is actionable; the rest of the time it is noise.
   $('#cmds').innerHTML = state.phase === 'voting'
