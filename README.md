@@ -51,6 +51,12 @@ boot.
 set `TMDB_API_KEY`. v3 keys and v4 read tokens both work. Without one the app
 still runs, falling back to plain typed titles with no posters.
 
+**Controls access** — the channel owner always has it. `ADMIN_LOGINS` is a
+comma-separated list of Twitch logins that get it too, which is how you keep the
+controls page when running this on somebody else's channel. Logins are resolved
+to ids at boot, since a login can be renamed away and later claimed by someone
+else.
+
 **Chat** — nothing to set up. The app joins anonymously, reads `!vote`, and never
 posts. `BOT_ENABLED=false` turns it off entirely.
 
@@ -93,7 +99,7 @@ Pass the channel id to `dev-login` for streamer access.
 
 ## Settings
 
-In `.env`: `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURATION_SECONDS`,
+In `.env`: `ADMIN_LOGINS`, `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURATION_SECONDS`,
 `REPEAT_LOCKOUT_WEEKS`, `RESULTS_VISIBLE_HOURS`, `OVERLAY_REVEAL_SECONDS`.
 
 ## Notes

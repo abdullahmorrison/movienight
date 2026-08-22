@@ -8,7 +8,7 @@ import * as q from '../db/queries.js';
 import * as poll from '../poll.js';
 import * as tmdb from '../tmdb.js';
 import { lookupAvatar } from '../twitch.js';
-import { authRoutes, loadUser, requireUser, requireBroadcaster } from './auth.js';
+import { authRoutes, loadUser, requireUser, requireController, canControl } from './auth.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../public');
 const CHANNEL = config.channel.id;
@@ -59,7 +59,7 @@ export function createServer(): http.Server {
     // streamer opening the vote page sees exactly what viewers see — otherwise
     // it is no use for checking what has actually been hidden, and it leaks if
     // they ever put that page on screen.
-    const full = req.query.full === '1' && req.user?.id === CHANNEL;
+    const full = req.query.full === '1' && canControl(req.user);
     const snap = poll.snapshot(CHANNEL, full);
     res.json({
       ...snap,
@@ -71,6 +71,7 @@ export function createServer(): http.Server {
             displayName: req.user.displayName,
             avatar: req.user.avatar,
             isBroadcaster: req.user.id === CHANNEL,
+            canControl: canControl(req.user),
           }
         : null,
       myInterest: req.user ? q.myInterest(CHANNEL, req.user.id) : [],
@@ -231,7 +232,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/poll/open', requireBroadcaster, (req, res) => {
+  app.post('/api/poll/open', requireController, (req, res) => {
     const seconds = Number((req.body as { durationSeconds?: unknown }).durationSeconds);
     try {
       const p = poll.open(
@@ -244,7 +245,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/poll/close', requireBroadcaster, (_req, res) => {
+  app.post('/api/poll/close', requireController, (_req, res) => {
     const result = poll.close(CHANNEL);
     if (!result) {
       res.status(409).json({ error: 'No poll is open.' });
@@ -253,7 +254,7 @@ export function createServer(): http.Server {
     res.json({ ok: true, ...result });
   });
 
-  app.post('/api/settings/tally', requireBroadcaster, (req, res) => {
+  app.post('/api/settings/tally', requireController, (req, res) => {
     const show = (req.body as { show?: unknown }).show;
     if (typeof show !== 'boolean') {
       res.status(400).json({ error: 'show must be true or false.' });
@@ -264,7 +265,7 @@ export function createServer(): http.Server {
     res.json({ ok: true, showTally: show });
   });
 
-  app.post('/api/poll/cancel', requireBroadcaster, (_req, res) => {
+  app.post('/api/poll/cancel', requireController, (_req, res) => {
     try {
       poll.cancel(CHANNEL);
       res.json({ ok: true });
@@ -273,7 +274,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/poll/tiebreak', requireBroadcaster, (req, res) => {
+  app.post('/api/poll/tiebreak', requireController, (req, res) => {
     const seconds = Number((req.body as { durationSeconds?: unknown }).durationSeconds);
     try {
       const p = poll.tiebreak(
@@ -286,7 +287,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/poll/dismiss', requireBroadcaster, (_req, res) => {
+  app.post('/api/poll/dismiss', requireController, (_req, res) => {
     try {
       poll.dismiss(CHANNEL);
       res.json({ ok: true });
@@ -295,7 +296,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/poll/settle', requireBroadcaster, (req, res) => {
+  app.post('/api/poll/settle', requireController, (req, res) => {
     const id = Number((req.body as { nominationId?: unknown }).nominationId);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Pick one of the tied movies.' });
@@ -308,7 +309,7 @@ export function createServer(): http.Server {
     }
   });
 
-  app.post('/api/veto/:id', requireBroadcaster, (req, res) => {
+  app.post('/api/veto/:id', requireController, (req, res) => {
     const blocked = boardLocked();
     if (blocked) {
       res.status(409).json({ error: blocked });
@@ -321,7 +322,7 @@ export function createServer(): http.Server {
     res.status(ok ? 200 : 404).json(ok ? { ok } : { error: 'Nothing to veto.' });
   });
 
-  app.post('/api/unveto/:id', requireBroadcaster, (req, res) => {
+  app.post('/api/unveto/:id', requireController, (req, res) => {
     const blocked = boardLocked();
     if (blocked) {
       res.status(409).json({ error: blocked });

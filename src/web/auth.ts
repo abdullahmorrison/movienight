@@ -95,12 +95,18 @@ export function requireUser(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
-export function requireBroadcaster(req: Request, res: Response, next: NextFunction): void {
+/** The channel owner, plus anyone in ADMIN_LOGINS. */
+export function canControl(user: SessionUser | undefined): boolean {
+  if (!user) return false;
+  return user.id === config.channel.id || config.admins.ids.includes(user.id);
+}
+
+export function requireController(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: 'Sign in with Twitch first.' });
     return;
   }
-  if (req.user.id !== config.channel.id) {
+  if (!canControl(req.user)) {
     res.status(403).json({ error: 'Streamer only.' });
     return;
   }

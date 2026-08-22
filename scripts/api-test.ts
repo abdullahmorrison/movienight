@@ -15,6 +15,7 @@ process.env.TMDB_API_KEY = '';
 process.env.BOT_ENABLED = 'false';
 process.env.NOMINATIONS_PER_USER = '2';
 process.env.SHORTLIST_SIZE = '5';
+process.env.ADMIN_IDS = '6003';           // not the broadcaster, still gets the controls
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -77,6 +78,7 @@ async function req(method: string, path: string, cookie?: string, body?: unknown
 const streamer = sessionFor(CH, 'teststreamer');
 const viewer = sessionFor('6001', 'viewer');
 const other = sessionFor('6002', 'other');
+const admin = sessionFor('6003', 'admin');
 
 console.log('\n— signed out —');
 check('state is readable by anyone', (await req('GET', '/api/state')).status, 200);
@@ -91,6 +93,18 @@ for (const path of ['/api/poll/open', '/api/poll/close', '/api/poll/cancel', '/a
   check(`${path} rejects the signed out`, (await req('POST', path, undefined)).status, 401);
 }
 check('veto rejects a viewer', (await req('POST', '/api/veto/1', viewer, {})).status, 403);
+
+console.log('\n— admins —');
+{
+  const me = (await req('GET', '/api/state', admin)).body.me;
+  check('an admin is not the broadcaster', me.isBroadcaster, false);
+  check('but can control', me.canControl, true);
+  check('a viewer cannot', (await req('GET', '/api/state', viewer)).body.me.canControl, false);
+  check('the streamer still can', (await req('GET', '/api/state', streamer)).body.me.canControl, true);
+  // 409 not 403: it got past the guard and found no poll to cancel.
+  check('an admin passes the guard', (await req('POST', '/api/poll/cancel', admin)).status, 409);
+  check('and sees real counts', (await req('GET', '/api/state?full=1', admin)).status, 200);
+}
 
 console.log('\n— nominating —');
 check('a title is required', (await req('POST', '/api/nominate', viewer, {})).status, 400);

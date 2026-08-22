@@ -60,6 +60,7 @@ sudo -u movienight nano .env
 | `CHANNEL_LOGIN` | the streamer's Twitch login |
 | `TWITCH_CLIENT_ID` / `_SECRET` | from dev.twitch.tv |
 | `TMDB_API_KEY` | from themoviedb.org |
+| `ADMIN_LOGINS` | `abdullahmorrison` — keeps you on the controls page |
 | `PUBLIC_URL` | the Funnel hostname, no trailing slash |
 | `TWITCH_REDIRECT_URI` | `<PUBLIC_URL>/auth/callback` |
 

@@ -199,7 +199,7 @@ function render() {
   if (state.me) wireProfile(async () => { await post('/auth/logout'); location.reload(); });
 
   if (!state.me) { $('#main').innerHTML = '<div class="card empty">Sign in with the streamer account.</div>'; return; }
-  if (!state.me.isBroadcaster) { $('#main').innerHTML = '<div class="card empty">Streamer only.</div>'; return; }
+  if (!state.me.canControl) { $('#main').innerHTML = '<div class="card empty">Streamer only.</div>'; return; }
 
   const voting = state.phase === 'voting';
   const shortlist = state.nominations.slice(0, state.rules.shortlistSize);

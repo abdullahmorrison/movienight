@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { resolveChannelId } from './twitch.js';
+import { resolveChannelId, resolveAdminIds } from './twitch.js';
 
 // Must happen before anything imports the database: the schema seeds a row for
 // this channel, and every table keys on its id.
@@ -11,6 +11,8 @@ try {
   console.error('         Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in .env, or hardcode CHANNEL_ID.');
   process.exit(1);
 }
+
+await resolveAdminIds();
 
 const { createServer } = await import('./web/server.js');
 const { startBot } = await import('./bot/chat.js');

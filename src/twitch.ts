@@ -51,6 +51,26 @@ export async function lookupUserId(login: string): Promise<string | null> {
 }
 
 /**
+ * Turns ADMIN_LOGINS into ids. A missing or unresolvable login is a warning,
+ * never a boot failure: it costs one person the controls, and the streamer
+ * still has them.
+ */
+export async function resolveAdminIds(): Promise<void> {
+  for (const login of config.admins.logins) {
+    try {
+      const id = await lookupUserId(login);
+      if (!id) {
+        console.warn(`[twitch] ADMIN_LOGINS: no such channel: ${login}`);
+        continue;
+      }
+      if (!config.admins.ids.includes(id)) config.admins.ids.push(id);
+    } catch (err) {
+      console.warn(`[twitch] ADMIN_LOGINS: could not resolve ${login}: ${(err as Error).message}`);
+    }
+  }
+}
+
+/**
  * CHANNEL_ID is just the numeric form of CHANNEL_LOGIN, so look it up rather
  * than making anyone hunt for it. Must run before the database is touched.
  */

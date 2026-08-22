@@ -30,6 +30,7 @@ export function profileHtml(me, links = []) {
         <div class="menu-head">
           Signed in as <b>${esc(name)}</b>
           ${me.isBroadcaster ? '<span class="tag">Streamer</span>' : ''}
+          ${!me.isBroadcaster && me.canControl ? '<span class="tag">Admin</span>' : ''}
         </div>
         ${links.length
           ? `<div class="menu-links">${links

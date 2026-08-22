@@ -6,6 +6,13 @@ function req(name: string): string {
   return v;
 }
 
+function list(name: string): string[] {
+  return (process.env[name] ?? '')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function num(name: string, fallback: number): number {
   const v = process.env[name];
   if (!v) return fallback;
@@ -42,6 +49,14 @@ export const config = {
   channel: {
     id: process.env.CHANNEL_ID ?? '',
     login: req('CHANNEL_LOGIN').toLowerCase(),
+  },
+
+  // Always gets the controls, whoever's channel this is. Logins are resolved to
+  // ids at boot: a Twitch id is permanent, a login can be renamed away and
+  // later claimed by someone else.
+  admins: {
+    logins: list('ADMIN_LOGINS'),
+    ids: list('ADMIN_IDS'),
   },
 
   rules: {
