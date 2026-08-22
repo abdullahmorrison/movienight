@@ -717,6 +717,15 @@ function pastWinners() {
 
 /* ---------- render ---------- */
 
+/**
+ * One line saying what this is. Most people arrive mid-vote from a link read
+ * out on stream, with no idea what they have opened, so it shows in every phase.
+ */
+function intro() {
+  return `<div class="pad"><p class="intro">Help <b>${esc(state.channel ?? 'the streamer')}</b>
+    pick a movie to watch for movie night.</p></div>`;
+}
+
 function render() {
   renderAuth();
   const main = $('#main');
@@ -728,7 +737,7 @@ function render() {
     : state.phase === 'results' ? renderResults()
     : renderNominating();
   // History belongs on the page whatever phase it is in.
-  main.innerHTML = body + pastWinners();
+  main.innerHTML = intro() + body + pastWinners();
 
   // Only worth saying while it is actionable; the rest of the time it is noise.
   $('#cmds').innerHTML = state.phase === 'voting'

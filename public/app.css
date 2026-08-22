@@ -235,6 +235,9 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 .row-head .note { color: var(--dim); font-size: 13px; }
 
 .lede { color: var(--muted); font-size: 14px; margin: 0 0 16px; max-width: 70ch; }
+/* Sits above whatever the current phase is, so it stays quiet. */
+.intro { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 60ch; }
+.intro b { color: var(--text); font-weight: 700; }
 .lede b { color: var(--text); }
 .muted { color: var(--muted); font-size: 13.5px; }
 
