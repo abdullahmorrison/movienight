@@ -104,6 +104,9 @@ In `.env`: `ADMIN_LOGINS`, `SHORTLIST_SIZE`, `NOMINATIONS_PER_USER`, `POLL_DURAT
 
 ## Notes
 
+- **A vote sends the numbers, not the board.** Every other change pushes a full
+  snapshot; a vote pushes ~70 bytes and at most once a second. Otherwise a busy
+  poll costs voters x viewers snapshots.
 - **State is in SQLite, not memory.** A restart mid-vote resumes with the tally
   and timer intact, or closes the vote if it was down past the deadline.
 - **Viewer access tokens are never stored.** Sign-in requests no scopes, reads

@@ -512,7 +512,9 @@ function connect() {
     const msg = JSON.parse(ev.data);
     // Broadcasts carry the viewer-facing snapshot, which may have the counts
     // stripped. The streamer's page asks for its own copy instead.
-    if (msg.type === 'state') refresh();
+    // Either way the controls refetch: they need the real counts, which a
+    // viewer-facing delta leaves out while the tally is hidden.
+    if (msg.type === 'state' || msg.type === 'tally') refresh();
   };
   ws.onclose = () => setTimeout(connect, 2000);
 }

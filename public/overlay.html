@@ -295,6 +295,14 @@ function connect() {
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === 'state') { state = msg.data; render(); }
+    // A vote sends the numbers alone; the board it belongs to is already here.
+    else if (msg.type === 'tally' && state?.poll?.id === msg.data.pollId) {
+      if (Object.keys(msg.data.votes).length) {
+        state.options.forEach((o) => { o.votes = msg.data.votes[o.nominationId] ?? o.votes; });
+      }
+      state.voters = msg.data.voters;
+      render();
+    }
   };
   ws.onclose = () => setTimeout(connect, 2000);
 }

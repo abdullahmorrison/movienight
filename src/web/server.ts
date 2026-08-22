@@ -215,7 +215,7 @@ export function createServer(): http.Server {
     try {
       if (raw === null) {
         q.clearVote(CHANNEL, open.id, req.user!.id);
-        poll.broadcast(CHANNEL);
+        poll.broadcastTally(CHANNEL);
         res.json({ ok: true, nominationId: null });
         return;
       }
@@ -225,7 +225,7 @@ export function createServer(): http.Server {
         return;
       }
       q.castVote(CHANNEL, open.id, req.user!.id, id, 'web');
-      poll.broadcast(CHANNEL);
+      poll.broadcastTally(CHANNEL);
       res.json({ ok: true, nominationId: id });
     } catch (err) {
       res.status(409).json({ error: (err as Error).message });
@@ -351,12 +351,44 @@ function attachWebsocket(server: http.Server): void {
     ws.send(JSON.stringify({ type: 'state', data: poll.snapshot(CHANNEL) }));
   });
 
-  poll.events.on('update', (channelId: string, snap: poll.Snapshot) => {
-    if (channelId !== CHANNEL) return;
-    const payload = JSON.stringify({ type: 'state', data: snap });
+  function sendAll(payload: string): void {
     for (const client of wss.clients) {
       if (client.readyState === WebSocket.OPEN) client.send(payload);
     }
+  }
+
+  // Votes arrive in bursts and move nothing but numbers, so they go out as a
+  // ~100 byte delta instead of the whole snapshot, and at most once a second.
+  // Nobody can read a tally moving faster than that.
+  let tallyQueued = false;
+  let tallyCooldown: NodeJS.Timeout | null = null;
+
+  function sendTally(): void {
+    const data = poll.tallyOf(CHANNEL);
+    if (!data) return;
+    sendAll(JSON.stringify({ type: 'tally', data }));
+  }
+
+  function afterCooldown(): void {
+    tallyCooldown = null;
+    if (!tallyQueued) return;
+    tallyQueued = false;
+    sendTally();
+    tallyCooldown = setTimeout(afterCooldown, 1000);
+  }
+
+  poll.events.on('tally', (channelId: string) => {
+    if (channelId !== CHANNEL) return;
+    if (tallyCooldown) { tallyQueued = true; return; }
+    sendTally();
+    tallyCooldown = setTimeout(afterCooldown, 1000);
+  });
+
+  poll.events.on('update', (channelId: string, snap: poll.Snapshot) => {
+    if (channelId !== CHANNEL) return;
+    // The snapshot carries the counts already; a delta behind it would be stale.
+    tallyQueued = false;
+    sendAll(JSON.stringify({ type: 'state', data: snap }));
   });
 
   // No periodic broadcast: every vote, nomination and veto already pushes, and

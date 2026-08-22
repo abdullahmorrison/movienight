@@ -51,5 +51,5 @@ function handleVote(text: string, msg: ChatMessage): void {
   // voting here and on the site is one ballot rather than two.
   q.upsertUser(msg.userInfo.userId, msg.userInfo.userName, msg.userInfo.displayName);
   q.castVote(CHANNEL, open.id, msg.userInfo.userId, chosen.nomination_id, 'chat');
-  poll.broadcast(CHANNEL);
+  poll.broadcastTally(CHANNEL);
 }

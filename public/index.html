@@ -860,6 +860,26 @@ function apply(next, force = false) {
   }
 }
 
+/**
+ * A vote arrives as the numbers alone. Patch them into the state we already
+ * hold: a full snapshot per vote is what makes a busy poll expensive.
+ */
+function patchTally(t) {
+  // Between polls the counts belong to a board we no longer have. A full
+  // snapshot is always sent for that, so wait for it.
+  if (!state?.poll || state.poll.id !== t.pollId) return;
+
+  // Empty while the streamer is hiding the count; the zeros already sent stand.
+  if (Object.keys(t.votes).length) {
+    state.options.forEach((o) => { o.votes = t.votes[o.nominationId] ?? o.votes; });
+  }
+  state.voters = t.voters;
+
+  if (searchBusy()) return;
+  if (screenSignature() === lastSignature) return;
+  render();
+}
+
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -869,6 +889,8 @@ function connect() {
     if (msg.type === 'state') {
       apply({ ...msg.data, channel: state?.channel, me: state?.me ?? null,
               myInterest: state?.myInterest ?? [], myVote: state?.myVote ?? null });
+    } else if (msg.type === 'tally') {
+      patchTally(msg.data);
     }
   };
   ws.onclose = () => setTimeout(connect, 2000);

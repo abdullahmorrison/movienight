@@ -184,6 +184,38 @@ export function broadcast(channelId: string): void {
   events.emit('update', channelId, snapshot(channelId));
 }
 
+/**
+ * The handful of numbers that move while a poll runs. A vote changes nothing
+ * else, and re-sending the whole board to every viewer for each one costs
+ * voters x viewers snapshots over a night.
+ */
+export type Tally = {
+  pollId: number;
+  /** nominationId to votes. Empty while the counts are hidden from viewers. */
+  votes: Record<number, number>;
+  voters: number;
+};
+
+export function tallyOf(channelId: string): Tally | null {
+  const open = q.getOpenPoll(channelId);
+  if (!open) return null;
+
+  // Zero first, then the counts: a cleared vote drops its row from the tally
+  // entirely, and a client that kept the old number would never lose it.
+  const votes: Record<number, number> = {};
+  if (q.showsTally(channelId)) {
+    for (const o of q.pollOptions(channelId, open.id)) votes[o.nomination_id] = 0;
+    for (const t of q.tally(channelId, open.id)) votes[t.nomination_id] = t.votes;
+  }
+
+  return { pollId: open.id, votes, voters: q.voterCount(channelId, open.id) };
+}
+
+/** For a vote: the board is unchanged, so only the numbers go out. */
+export function broadcastTally(channelId: string): void {
+  events.emit('tally', channelId);
+}
+
 export function open(
   channelId: string,
   durationSeconds = config.rules.pollDurationSeconds,
