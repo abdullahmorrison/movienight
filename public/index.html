@@ -441,13 +441,15 @@ function nominateSection() {
 
   return `
     <div class="pad">
-      <div class="row-head">
-        <h3>Nominate a movie</h3>
-        ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
+      <div class="nominate-block">
+        <div class="row-head">
+          <h3>Nominate a movie</h3>
+          ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
+        </div>
+        ${state.me && mine.length >= state.rules.nominationsPerUser
+          ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
+          : searchBox() + (state.me ? slotsSpare(mine) : '')}
       </div>
-      ${state.me && mine.length >= state.rules.nominationsPerUser
-        ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
-        : searchBox() + (state.me ? slotsSpare(mine) : '')}
       <div class="row-head">
         <h3>Nominated so far</h3>
         <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote

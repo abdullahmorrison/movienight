@@ -337,11 +337,11 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 .slots-full {
   border: 1px solid var(--accent); border-radius: 6px;
   background: rgba(145, 70, 255, .09);
-  padding: 20px; max-width: 560px;
+  padding: 20px;
 }
 .slots-spare {
   border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
-  padding: 16px 20px; max-width: 560px; margin-top: 16px;
+  padding: 16px 20px; margin-top: 16px;
 }
 .slots-spare h4 {
   margin: 0 0 2px; font-size: 13px; font-weight: 800;
@@ -364,7 +364,9 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 
 /* ---------- search ---------- */
 
-.search { position: relative; max-width: 560px; }
+.nominate-block { max-width: 860px; }
+.nominate-block .row-head { margin-top: 0; }
+.search { position: relative; }
 .search input {
   width: 100%; background: rgba(0,0,0,.72); border: 1px solid var(--line);
   color: var(--text); border-radius: 3px; padding: 13px 15px 13px 42px;
