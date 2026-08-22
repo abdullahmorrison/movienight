@@ -422,8 +422,7 @@ function searchBox() {
       <input type="text" id="q" placeholder="Search for a movie…" autocomplete="off" spellcheck="false">
       <span class="spin" id="spin"></span>
       <div class="results" id="results"></div>
-    </div>
-    <div class="toast" id="toast"></div>`;
+    </div>`;
 }
 
 /** Only the ones still using a slot — a backed nomination no longer does. */
@@ -441,15 +440,15 @@ function nominateSection() {
 
   return `
     <div class="pad">
-      <div class="nominate-block">
-        <div class="row-head">
-          <h3>Nominate a movie</h3>
-          ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
-        </div>
-        ${state.me && mine.length >= state.rules.nominationsPerUser
-          ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
-          : searchBox() + (state.me ? slotsSpare(mine) : '')}
-      </div>
+      <div class="row-head"><h3>Nominate a movie</h3></div>
+      ${state.me && mine.length >= state.rules.nominationsPerUser
+        ? slotsFull(mine) + '<div class="toast" id="toast"></div>'
+        : `<div class="search-row">
+             ${searchBox()}
+             ${state.me ? slotMeter(mine.length, state.rules.nominationsPerUser) : ''}
+           </div>
+           <div class="toast" id="toast"></div>
+           ${state.me ? slotsSpare(mine) : ''}`}
       <div class="row-head">
         <h3>Nominated so far</h3>
         <span class="note">Most wanted first — the top ${state.rules.shortlistSize} go up for vote

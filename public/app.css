@@ -46,14 +46,14 @@ body {
 .pad, .grid, header.top .top-inner, .hero .inner {
   max-width: var(--content); margin-inline: auto;
 }
-.pad { padding: 0 clamp(16px, 4vw, 44px); }
+.pad, header.top .top-inner { padding: 0 clamp(16px, 4vw, 44px); }
 
 /* ---------- top bar ---------- */
 
 /* Full-bleed: the scrim has to span the viewport, not the content column. */
 header.top {
   position: sticky; top: 0; z-index: 60; width: 100%;
-  padding: 16px clamp(16px, 4vw, 44px);
+  padding: 16px 0;
   background: linear-gradient(
     180deg,
     rgba(0, 0, 0, .95) 0%,
@@ -364,8 +364,16 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 
 /* ---------- search ---------- */
 
-.nominate-block { max-width: 860px; }
-.nominate-block .row-head { margin-top: 0; }
+/* One row across the full column, so the search, the slot meter and every
+   heading below share the same right edge. */
+.search-row { display: flex; align-items: center; gap: 14px; }
+.search-row .search { flex: 1; min-width: 0; }
+.search-row .slot-meter { flex: none; }
+@media (max-width: 620px) {
+  .search-row { flex-wrap: wrap; }
+  .search-row .search { flex: 1 0 100%; }
+}
+
 .search { position: relative; }
 .search input {
   width: 100%; background: rgba(0,0,0,.72); border: 1px solid var(--line);
