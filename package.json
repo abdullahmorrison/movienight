@@ -12,7 +12,8 @@
     "dev-login": "tsx scripts/dev-login.ts",
     "test:api": "tsx scripts/api-test.ts",
     "test:migration": "tsx scripts/migration-test.ts",
-    "test": "npm run typecheck && npm run smoke && npm run test:api && npm run test:migration"
+    "test": "npm run typecheck && npm run smoke && npm run test:api && npm run test:migration",
+    "seed-demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@twurple/chat": "^8.1.4",
