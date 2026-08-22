@@ -15,7 +15,8 @@
   :root[data-accent="red"] { --accent: #e50914; }
   * { box-sizing: border-box; }
   /* Transparent for OBS Browser Source. Add ?solid=1 to preview elsewhere. */
-  body { margin: 0; background: transparent; color: #fff; }
+  /* The panel parks outside the frame, so nothing should scroll to reach it. */
+  body { margin: 0; background: transparent; color: #fff; overflow: hidden; }
 
   /* Hidden unless there is something to say, so the browser source can be left
      on permanently. Transformed rather than display-toggled, so it animates. */
@@ -26,24 +27,24 @@
     border-top: 3px solid var(--accent);
     box-shadow: 0 22px 60px rgba(0,0,0,.7);
     position: relative;
-    opacity: 0;
-    /* Far enough to read as travel rather than a fade. */
-    transform: translateY(90px) scale(.96);
-    transition: opacity .3s ease, transform .55s cubic-bezier(.18, .89, .32, 1.06);
-    will-change: opacity, transform;
+    /* Parked clear of the left edge of the source, so it enters and leaves
+       from outside the frame rather than moving about inside it. */
+    transform: translateX(calc(-100% - 80px));
+    transition: transform .6s cubic-bezier(.22, .85, .3, 1);
+    will-change: transform;
   }
-  .panel.on {
-    opacity: 1;
-    transform: none;
-    transition: opacity .25s ease, transform .55s cubic-bezier(.18, .89, .32, 1.06);
-  }
+  .panel.on { transform: translateX(0); }
 
   /* The top rule doubles as the countdown once a result is up. */
+  /* Animated by the compositor rather than stepped from a timer, so it drains
+     evenly instead of ticking down four times a second. */
   .reveal {
     position: absolute; top: -3px; left: 0; height: 3px; width: 100%;
     background: var(--accent); border-radius: 6px 0 0 0;
     display: none; transform-origin: left center;
+    animation-name: drain; animation-timing-function: linear; animation-fill-mode: forwards;
   }
+  @keyframes drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .panel.revealing { border-top-color: rgba(255, 255, 255, .12); }
   .panel.revealing .reveal { display: block; }
   @media (prefers-reduced-motion: reduce) {
@@ -125,6 +126,7 @@
 let state = null;
 const params = new URLSearchParams(location.search);
 const ALWAYS = params.has('always');
+let drainingFor = null;   // closedAt of the result currently draining
 if (params.has('solid')) document.body.style.background = '#141414';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -172,12 +174,23 @@ function applyVisibility() {
 
   // While a result is up, the top rule drains to show how long it has left.
   const closedAt = state?.phase === 'results' ? state.poll?.closedAt : null;
-  const revealMs = (state?.rules.revealSeconds ?? 20) * 1000;
   const revealing = Boolean(closedAt) && !ALWAYS;
   p.classList.toggle('revealing', revealing);
-  if (revealing) {
-    const left = Math.max(0, revealMs - (Date.now() - closedAt));
-    document.getElementById('reveal').style.width = `${(left / revealMs) * 100}%`;
+
+  // Started once per result, not per tick: restarting the animation every
+  // quarter second is what made it step.
+  if (revealing && closedAt !== drainingFor) {
+    drainingFor = closedAt;
+    const bar = document.getElementById('reveal');
+    const revealMs = (state.rules.revealSeconds ?? 20) * 1000;
+    bar.style.animation = 'none';
+    void bar.offsetWidth; // forces the restart to take
+    bar.style.animation = '';
+    bar.style.animationDuration = `${revealMs}ms`;
+    // Negative delay picks up mid-drain when a page loads part-way through.
+    bar.style.animationDelay = `${-(Date.now() - closedAt)}ms`;
+  } else if (!revealing) {
+    drainingFor = null;
   }
 }
 
