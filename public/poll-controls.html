@@ -35,7 +35,6 @@
   .win { display: flex; gap: 16px; align-items: center; }
   .win img { width: 84px; border-radius: 4px; flex: none; }
   .win h2 { margin: 4px 0; font-size: 24px; font-weight: 900; letter-spacing: -.025em; }
-  .urls code { word-break: break-all; }
 </style>
 </head>
 <body>
@@ -144,6 +143,27 @@ function durationPicker(label) {
     </div>`;
 }
 
+/** Copies the field's value, falling back to selecting it if the API is blocked. */
+function wireCopy(buttonId, inputId) {
+  const btn = $(`#${buttonId}`);
+  const input = $(`#${inputId}`);
+  if (!btn || !input) return;
+
+  btn.onclick = async () => {
+    const label = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(input.value);
+      btn.textContent = 'Copied';
+    } catch {
+      // Clipboard access can be refused; leave it selected so Ctrl+C works.
+      input.select();
+      btn.textContent = 'Press Ctrl+C';
+    }
+    setTimeout(() => { btn.textContent = label; }, 1800);
+  };
+  input.onclick = () => input.select();
+}
+
 function wirePicker() {
   const slider = $('#dur');
   if (!slider) return;
@@ -162,7 +182,7 @@ function render() {
   $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
     ? `<a class="btn" href="/">Vote page</a>
-       ${profileHtml(state.me, [{ href: '/overlay', label: 'OBS overlay', external: true }])}`
+       ${profileHtml(state.me)}`
     : `<a class="btn cta" href="/auth/login"><svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg> Sign in with Twitch</a>`;
 
   if (state.me) wireProfile(async () => { await post('/auth/logout'); location.reload(); });
@@ -266,11 +286,28 @@ function render() {
              ${board}
            </div>`}
 
-    <div class="card urls">
-      <div class="eyebrow">Links</div>
-      <p class="muted">OBS browser source: <code>${location.origin}/overlay</code><br>
-      Chat votes here: <code>${location.origin}/</code></p>
+    <div class="card">
+      <div class="eyebrow">Put this on stream</div>
+      <div class="copy-row">
+        <input type="text" id="overlay-url" readonly value="${location.origin}/overlay"
+               aria-label="OBS browser source URL">
+        <button class="btn" id="copy-overlay">Copy</button>
+      </div>
+      <p class="copy-hint">In OBS: <b>Sources</b> → <b>+</b> → <b>Browser</b>, paste this as the
+        URL, set it to 1920 × 1080, and drag it above your other layers.</p>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Send viewers here to nominate</div>
+      <div class="copy-row">
+        <input type="text" id="site-url" readonly value="${location.origin}/"
+               aria-label="Vote page URL">
+        <button class="btn grey" id="copy-site">Copy</button>
+      </div>
     </div>`;
+
+  wireCopy('copy-overlay', 'overlay-url');
+  wireCopy('copy-site', 'site-url');
 
   const dismissBtn = $('#dismiss');
   if (dismissBtn) dismissBtn.onclick = async () => {

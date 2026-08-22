@@ -519,6 +519,19 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 @keyframes modal-fade { from { opacity: 0; } }
 @keyframes modal-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
 
+/* ---------- copyable link ---------- */
+
+.copy-row { display: flex; gap: 9px; align-items: stretch; }
+.copy-row input {
+  flex: 1; min-width: 0;
+  background: rgba(0, 0, 0, .55); border: 1px solid var(--line); border-radius: 4px;
+  color: var(--text); padding: 12px 13px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+}
+.copy-row input:focus { outline: none; border-color: var(--muted); }
+.copy-row .btn { flex: none; padding: 12px 18px; }
+.copy-hint { margin: 10px 0 0; font-size: 13px; color: var(--dim); }
+
 /* ---------- panels ---------- */
 
 .card {
