@@ -399,15 +399,20 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 /* ---------- past winners ---------- */
 
 .winners {
-  display: grid; gap: 12px; grid-auto-flow: column;
-  grid-auto-columns: 108px;
-  overflow-x: auto; padding: 4px clamp(16px, 4vw, 44px) 6px;
+  display: grid; gap: 14px;
+  grid-auto-flow: column; grid-auto-columns: 124px;
+  align-items: start;            /* otherwise items stretch to the row height */
+  max-width: var(--content); margin-inline: auto;
+  overflow-x: auto; padding: 4px clamp(16px, 4vw, 44px) 8px;
   scroll-snap-type: x proximity; scrollbar-width: thin;
 }
 .winners > * { scroll-snap-align: start; }
+
 .won { text-decoration: none; color: inherit; display: block; }
 .won .art {
-  position: relative; aspect-ratio: 2/3; border-radius: 4px; overflow: hidden;
+  display: block;                /* aspect-ratio is ignored on inline elements */
+  position: relative; aspect-ratio: 2 / 3;
+  border-radius: 4px; overflow: hidden;
   background: var(--surface-2); border: 1px solid var(--line);
   transition: transform .18s, border-color .18s;
 }
@@ -419,12 +424,17 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   background: linear-gradient(160deg, #262626, #161616);
 }
 .won .when {
-  position: absolute; inset: auto 0 0 0; padding: 16px 7px 6px;
-  background: linear-gradient(transparent, rgba(0,0,0,.92));
+  display: block; position: absolute; inset: auto 0 0 0;
+  padding: 18px 8px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .92));
   font-size: 11px; font-weight: 700; color: #e6e6e6;
 }
-.won b { display: block; margin-top: 7px; font-size: 12.5px; font-weight: 700; line-height: 1.3; }
-.won small { color: var(--dim); font-size: 11.5px; }
+.won b {
+  margin-top: 8px; font-size: 12.5px; font-weight: 700; line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.won small { display: block; color: var(--dim); font-size: 11.5px; margin-top: 2px; }
 
 /* ---------- tie ---------- */
 
