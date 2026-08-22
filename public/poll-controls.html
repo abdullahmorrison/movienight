@@ -300,15 +300,14 @@ function render() {
       ${voting ? `
         <div class="eyebrow"><span class="dot live"></span> Voting open ·
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
-        <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.
-          Nominations are closed until this poll ends.</p>
+        <p class="lede">${state.voters} ${state.voters === 1 ? 'vote' : 'votes'} so far.
+          Board is frozen until this ends.</p>
         <button class="btn cta big" id="close">Close voting early</button>
         <button class="btn ghost big" id="cancel" style="margin-top:9px">Cancel poll — no winner</button>
       ` : state.tie.length > 1 ? `
         <div class="eyebrow"><span class="dot live"></span> Tied — nothing decided yet</div>
         <p class="lede"><b>${state.tie.map((t) => esc(t.title)).join(' vs ')}</b> —
-          ${state.tie[0].votes} ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each.
-          Run it again between just these, or call it yourself.</p>
+          ${state.tie[0].votes} ${state.tie[0].votes === 1 ? 'vote' : 'votes'} each.</p>
         ${durationPicker('Tiebreaker length')}
         <button class="btn cta big" id="tiebreak">Start the tiebreaker</button>
         <p class="lede" style="margin:16px 0 8px">Or just pick one:</p>
@@ -319,18 +318,17 @@ function render() {
         <div class="eyebrow"><span class="dot"></span>
           ${state.phase === 'results' ? 'Last poll finished' : 'Nominations open'}</div>
         ${state.phase === 'results' ? `
-          <p class="lede">Put this week away before starting the next vote — the winner is
-            still on the front page, and it clears itself after
-            ${state.rules.resultsVisibleHours}h anyway.</p>
+          <p class="lede">Winner is still on the front page.
+            It clears itself after ${state.rules.resultsVisibleHours}h.</p>
           <button class="btn cta big" id="dismiss">Clear the result</button>
         ` : `
           ${shortlist.length < 2
-            ? `<p class="lede">A vote needs at least two movies to choose between, and
+            ? `<p class="lede">A vote needs two movies.
                  ${shortlist.length === 1
-                   ? `only <b>${esc(shortlist[0].title)}</b> is on the board.`
-                   : 'the board is empty.'}
-                 ${state.channel ? `Send people to ${esc(location.host)} to nominate.` : ''}</p>`
-            : `<p class="lede">Opens a vote on the top ${state.rules.shortlistSize} by interest:
+                   ? `Only <b>${esc(shortlist[0].title)}</b> so far.`
+                   : 'The board is empty.'}
+                 ${state.channel ? `Send people to ${esc(location.host)}.` : ''}</p>`
+            : `<p class="lede">Ballot — top ${state.rules.shortlistSize} by interest:
                  <b>${shortlist.map((n) => esc(n.title)).join(', ')}</b></p>`}
           ${durationPicker('Voting time')}
           <button class="btn cta big" id="start" ${shortlist.length < 2 ? 'disabled' : ''}>
@@ -357,7 +355,7 @@ function render() {
         // vetoing now would change nothing about it.
         ? ''
         : `<div class="card">
-             <div class="eyebrow">The board — veto anything you can't or won't stream</div>
+             <div class="eyebrow">The board — veto what you can't stream</div>
              ${board}
            </div>`}
       </div>
@@ -370,9 +368,8 @@ function render() {
         <input type="checkbox" id="hide-votes" ${state.showTally ? '' : 'checked'}>
         <span>
           <b>Hide vote counts from viewers</b>
-          <small>Keeps the running count to yourself until voting closes, so nobody
-            piles onto whatever is already ahead. The final result is always shown,
-            and so is how many people have voted.</small>
+          <small>Nobody piles onto whatever is ahead. The result and the number of
+            voters always show.</small>
         </span>
       </label>
     </div>
@@ -390,9 +387,8 @@ function render() {
         <li>Set <b>Width</b> 1920, <b>Height</b> 1080</li>
         <li>Drag it above your other layers</li>
       </ol>
-      <p class="copy-hint"><b>Add it once and leave it on.</b> It is invisible until a vote
-        starts, then slides in, holds the winner for ${state.rules.revealSeconds}s, and
-        slides away.</p>
+      <p class="copy-hint"><b>Add it once, leave it on.</b> Invisible until a vote starts.
+        Holds the winner ${state.rules.revealSeconds}s, then goes.</p>
     </div>
 
     <div class="card">
@@ -425,8 +421,8 @@ function render() {
     const ok = await confirmAction({
       glyph: '🧹',
       title: 'Clear the result?',
-      body: `${state.winner ? esc(state.winner.title) : 'The winner'} comes off the front page and `
-        + 'it goes back to taking nominations. It stays recorded as a past winner either way.',
+      body: `${state.winner ? esc(state.winner.title) : 'The winner'} comes off the front page `
+        + 'and nominations reopen. It stays recorded as a past winner.',
       verb: 'Clear it',
       danger: false,
     });
@@ -448,7 +444,7 @@ function render() {
       const ok = await confirmAction({
         glyph: '🏆',
         title: `Make ${b.dataset.title} the winner?`,
-        body: 'This ends the tie without another vote. It cannot be undone.',
+        body: 'Ends the tie with no second vote. Cannot be undone.',
         verb: 'Declare winner',
         danger: false,
       });
@@ -470,8 +466,8 @@ function render() {
     const ok = await confirmAction({
       glyph: '🏁',
       title: 'Close voting early?',
-      body: `Voting stops now instead of when the timer runs out, and the winner is decided
-        from the ${state.voters} ${state.voters === 1 ? 'vote' : 'votes'} cast so far.`,
+      body: `The timer stops here. The winner comes from the ${state.voters}
+        ${state.voters === 1 ? 'vote' : 'votes'} cast so far.`,
       verb: 'Close voting',
       danger: false,
     });
@@ -484,8 +480,7 @@ function render() {
   if (cancelBtn) cancelBtn.onclick = async () => {
     const ok = await confirmAction({
       title: 'Cancel this poll?',
-      body: 'Voting stops and nothing wins. Every movie stays on the board and you can '
-        + 'start again whenever you like.',
+      body: 'Voting stops, nothing wins. Every movie stays on the board.',
       verb: 'Cancel the poll',
     });
     if (!ok) return;
@@ -497,7 +492,7 @@ function render() {
     b.onclick = async () => {
       const ok = await confirmAction({
         title: `Veto ${b.dataset.title}?`,
-        body: 'It comes off the board and will not appear in the vote. You can re-nominate it later.',
+        body: 'Comes off the board and out of the vote. Can be re-nominated later.',
         verb: 'Veto it',
       });
       if (!ok) return;
