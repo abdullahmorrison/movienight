@@ -418,6 +418,12 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
   font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
 }
 .modal .dismiss:hover { color: var(--text); }
+/* Two-button confirm laid out under the message. */
+.modal .sheet .choices { display: flex; gap: 10px; margin-top: 4px; }
+.modal .sheet .choices .btn { flex: 1; width: auto; }
+.btn.danger-solid { background: var(--warn); color: #fff; border: 0; }
+.btn.danger-solid:hover { background: #ff6b62; }
+
 @keyframes modal-fade { from { opacity: 0; } }
 @keyframes modal-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
 

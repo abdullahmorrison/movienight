@@ -48,6 +48,18 @@
   <main id="main" class="pad"></main>
 </div>
 
+<div class="modal" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="sheet">
+    <div class="glyph" id="confirm-glyph">🚫</div>
+    <h3 id="confirm-title"></h3>
+    <p id="confirm-body"></p>
+    <div class="choices">
+      <button class="btn grey" id="confirm-no">Cancel</button>
+      <button class="btn danger-solid" id="confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { profileHtml, wireProfile } from '/profile.js';
 
@@ -57,6 +69,38 @@ let state = null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+/** Styled stand-in for window.confirm. Resolves true when the action is approved. */
+function confirmAction({ glyph = '🚫', title, body, verb, danger = true }) {
+  return new Promise((resolve) => {
+    const box = $('#confirm');
+    $('#confirm-glyph').textContent = glyph;
+    $('#confirm-title').textContent = title;
+    $('#confirm-body').textContent = body;
+
+    const yes = $('#confirm-yes');
+    yes.textContent = verb;
+    yes.className = `btn ${danger ? 'danger-solid' : 'cta'}`;
+
+    const done = (answer) => {
+      box.hidden = true;
+      document.removeEventListener('keydown', onKey);
+      resolve(answer);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') done(false);
+      if (e.key === 'Enter') done(true);
+    };
+
+    yes.onclick = () => done(true);
+    $('#confirm-no').onclick = () => done(false);
+    box.onclick = (e) => { if (e.target.id === 'confirm') done(false); };
+    document.addEventListener('keydown', onKey);
+
+    box.hidden = false;
+    yes.focus();
+  });
+}
 
 async function post(url, body) {
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body ?? {}) });
@@ -98,7 +142,7 @@ function render() {
         ${n.trailer ? `<a href="https://www.youtube.com/watch?v=${esc(n.trailer)}"
            target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
       </div>
-      <button class="btn danger" data-veto="${n.id}">Veto</button>
+      <button class="btn danger" data-veto="${n.id}" data-title="${esc(n.title)}">Veto</button>
     </div>`).join('') : '<div class="empty">No nominations yet.</div>';
 
   $('#main').innerHTML = `
@@ -120,7 +164,7 @@ function render() {
         </div>
         <p class="lede" style="margin:16px 0 8px">Or just pick one:</p>
         ${state.tie.map((t) => `
-          <button class="btn ghost big" data-settle="${t.nominationId}"
+          <button class="btn ghost big" data-settle="${t.nominationId}" data-title="${esc(t.title)}"
             style="margin-bottom:8px">Declare ${esc(t.title)} the winner</button>`).join('')}
       ` : `
         <div class="eyebrow"><span class="dot"></span>
@@ -166,6 +210,14 @@ function render() {
 
   $$('[data-settle]').forEach((b) => {
     b.onclick = async () => {
+      const ok = await confirmAction({
+        glyph: '🏆',
+        title: `Make ${b.dataset.title} the winner?`,
+        body: 'This ends the tie without another vote. It cannot be undone.',
+        verb: 'Declare winner',
+        danger: false,
+      });
+      if (!ok) return;
       try { const r = await post('/api/poll/settle', { nominationId: Number(b.dataset.settle) });
             toast(`Winner: ${r.winner?.title ?? ''}`); }
       catch (e) { toast(e.message, true); }
@@ -187,9 +239,13 @@ function render() {
 
   $$('[data-veto]').forEach((b) => {
     b.onclick = async () => {
-      const reason = prompt('Veto reason (optional)');
-      if (reason === null) return;
-      try { await post(`/api/veto/${b.dataset.veto}`, { reason }); }
+      const ok = await confirmAction({
+        title: `Veto ${b.dataset.title}?`,
+        body: 'It comes off the board and will not appear in the vote. You can re-nominate it later.',
+        verb: 'Veto it',
+      });
+      if (!ok) return;
+      try { await post(`/api/veto/${b.dataset.veto}`); }
       catch (e) { toast(e.message, true); }
     };
   });

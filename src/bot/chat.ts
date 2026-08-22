@@ -30,15 +30,25 @@ function cooldown(ms: number) {
 const canAnnounce = cooldown(5000);
 const canErrorReply = cooldown(3000);
 
-export async function startBot(): Promise<ChatClient | null> {
-  let stored: StoredToken;
+/**
+ * Reading chat needs no account: Twitch accepts anonymous IRC connections. A
+ * token only buys the ability to *reply*, so its absence downgrades to
+ * read-only rather than turning commands off.
+ */
+async function buildClient(): Promise<{ chat: ChatClient; canSpeak: boolean }> {
+  let stored: StoredToken | null = null;
   try {
     stored = JSON.parse(await fs.readFile(config.bot.tokenFile, 'utf8')) as StoredToken;
   } catch {
-    console.warn(
-      `[bot] no token file at ${config.bot.tokenFile} — chat commands are off. See README for the one-time token step.`,
+    stored = null;
+  }
+
+  if (!stored) {
+    console.log(
+      `[bot] read-only: no ${config.bot.tokenFile}, so commands work but the bot cannot reply.`,
     );
-    return null;
+    console.log('[bot] run `npm run bot-auth` if you want it to talk in chat.');
+    return { chat: new ChatClient({ channels: [config.channel.login] }), canSpeak: false };
   }
 
   const auth = new RefreshingAuthProvider({
@@ -55,14 +65,26 @@ export async function startBot(): Promise<ChatClient | null> {
   });
 
   await auth.addUserForToken(stored, ['chat']);
+  return { chat: new ChatClient({ authProvider: auth, channels: [config.channel.login] }), canSpeak: true };
+}
 
-  const chat = new ChatClient({ authProvider: auth, channels: [config.channel.login] });
+export async function startBot(): Promise<ChatClient | null> {
+  const { chat, canSpeak } = await buildClient();
+  // Swallowed rather than branched at every call site: everything the bot says
+  // is a convenience, and the overlay carries the same information.
+  const announce = (message: string) => {
+    if (canSpeak) chat.say(config.channel.login, message);
+  };
 
   chat.onMessage((_channel, _user, text, msg) => {
-    handleMessage(text, msg, chat).catch((err) => console.error('[bot] handler failed', err));
+    handleMessage(text, msg, announce).catch((err) => console.error('[bot] handler failed', err));
   });
 
-  chat.onConnect(() => console.log(`[bot] connected, joined #${config.channel.login}`));
+  chat.onConnect(() =>
+    console.log(
+      `[bot] connected, joined #${config.channel.login}${canSpeak ? '' : ' (read-only)'}`,
+    ),
+  );
   chat.onDisconnect((manual, reason) => {
     if (!manual) console.warn('[bot] disconnected, reconnecting:', reason?.message ?? reason);
   });
@@ -71,7 +93,7 @@ export async function startBot(): Promise<ChatClient | null> {
 
   poll.events.on('closed', (channelId: string, result: q.CloseResult | null) => {
     if (channelId !== CHANNEL || !result) return;
-    const say = (m: string) => chat.say(config.channel.login, m);
+    const say = announce;
 
     if (result.outcome === 'winner') {
       const { title, votes } = result.winner;
@@ -88,21 +110,23 @@ export async function startBot(): Promise<ChatClient | null> {
 
   poll.events.on('settled', (channelId: string, winner: q.Tally) => {
     if (channelId !== CHANNEL) return;
-    chat.say(config.channel.login, `🎬 Tie settled — tonight's movie is ${winner.title}.`);
+    announce(`🎬 Tie settled — tonight's movie is ${winner.title}.`);
   });
 
   return chat;
 }
 
-async function handleMessage(text: string, msg: ChatMessage, chat: ChatClient): Promise<void> {
+async function handleMessage(
+  text: string,
+  msg: ChatMessage,
+  say: (message: string) => void,
+): Promise<void> {
   const raw = text.trim();
   if (!raw.startsWith('!')) return;
 
   const [cmdRaw, ...rest] = raw.slice(1).split(/\s+/);
   const cmd = (cmdRaw ?? '').toLowerCase();
   const arg = rest.join(' ');
-  const say = (m: string) => chat.say(config.channel.login, m);
-
   const userId = msg.userInfo.userId;
   const login = msg.userInfo.userName;
   const isPrivileged = msg.userInfo.isMod || msg.userInfo.isBroadcaster;
