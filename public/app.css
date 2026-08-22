@@ -398,6 +398,15 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 
 /* ---------- past winners ---------- */
 
+/* History is a separate concern from whatever the week is currently doing, so
+   it gets a rule and real space rather than running on from the section above. */
+.past-head {
+  margin-top: 64px;
+  padding-top: 36px;
+  border-top: 1px solid var(--line);
+}
+.past-head .row-head { margin-top: 0; }
+
 .winners {
   display: grid; gap: 14px;
   grid-auto-flow: column; grid-auto-columns: 124px;

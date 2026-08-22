@@ -665,13 +665,13 @@ const WHEN = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short'
 function pastWinners() {
   if (!state.winners.length) {
     return `
-      <div class="pad">
+      <div class="pad past-head">
         <div class="row-head"><h3>Past winners</h3></div>
         <p class="lede">Nothing has won yet. The first movie night will show up here.</p>
       </div>`;
   }
   return `
-    <div class="pad">
+    <div class="pad past-head">
       <div class="row-head">
         <h3>Past winners</h3>
         <span class="note">Locked out of nominations for
