@@ -695,9 +695,10 @@ function render() {
     : state.phase === 'results' ? renderResults()
     : renderNominating();
 
+  // Only worth saying while it is actionable; the rest of the time it is noise.
   $('#cmds').innerHTML = state.phase === 'voting'
     ? 'You can also vote from chat: <code>!vote 2</code>'
-    : 'Nominating happens here — chat can only vote, and only while a poll is open.';
+    : '';
 
   wireSearch();
 

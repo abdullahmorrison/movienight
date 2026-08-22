@@ -583,6 +583,7 @@ code {
 }
 .site-footer p { margin: 0; }
 .site-footer .muted { margin-bottom: 12px; }
+.site-footer .muted:empty { display: none; }
 
 /* Flex rows rather than vertical-align: the mark and the words then share one
    centre line at any font size. */
