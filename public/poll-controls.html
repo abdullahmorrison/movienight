@@ -150,17 +150,32 @@ function render() {
   const voting = state.phase === 'voting';
   const shortlist = state.nominations.slice(0, state.rules.shortlistSize);
 
-  const board = state.nominations.length ? state.nominations.map((n, i) => `
-    <div class="line">
-      ${thumb(n)}
-      <div class="t">
-        <b>${i < state.rules.shortlistSize ? '★ ' : ''}${esc(n.title)}</b>
-        <small>${n.year ? n.year + ' · ' : ''}${n.interest} ${n.interest === 1 ? 'person wants' : 'people want'} this · by ${esc(n.nominator)}</small>
-        ${n.trailer ? `<a href="https://www.youtube.com/watch?v=${esc(n.trailer)}"
-           target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
-      </div>
-      <button class="btn danger" data-veto="${n.id}" data-title="${esc(n.title)}">Veto</button>
-    </div>`).join('') : '<div class="empty">No nominations yet.</div>';
+  // While a poll runs the ballot is fixed, so nothing here is actionable. Show
+  // the live tally instead of a board with controls that cannot be used.
+  const ballot = state.options
+    .map((o) => `
+      <div class="line">
+        ${thumb(o)}
+        <div class="t">
+          <b>${o.position}. ${esc(o.title)}</b>
+          <small>${o.year ? o.year + ' · ' : ''}${o.votes} ${o.votes === 1 ? 'vote' : 'votes'}</small>
+        </div>
+      </div>`)
+    .join('');
+
+  const board = state.nominations.length
+    ? state.nominations.map((n, i) => `
+        <div class="line">
+          ${thumb(n)}
+          <div class="t">
+            <b>${i < state.rules.shortlistSize ? '★ ' : ''}${esc(n.title)}</b>
+            <small>${n.year ? n.year + ' · ' : ''}${n.interest} ${n.interest === 1 ? 'person wants' : 'people want'} this · by ${esc(n.nominator)}</small>
+            ${n.trailer ? `<a href="https://www.youtube.com/watch?v=${esc(n.trailer)}"
+               target="_blank" rel="noopener noreferrer">▶ Trailer</a>` : ''}
+          </div>
+          <button class="btn danger" data-veto="${n.id}" data-title="${esc(n.title)}">Veto</button>
+        </div>`).join('')
+    : '<div class="empty">No nominations yet.</div>';
 
   $('#main').innerHTML = `
     <div class="card">
@@ -213,8 +228,9 @@ function render() {
       </div>` : ''}
 
     <div class="card">
-      <div class="eyebrow">The board — veto anything you can't or won't stream</div>
-      ${board}
+      ${voting
+        ? `<div class="eyebrow">On the ballot — live</div>${ballot}`
+        : `<div class="eyebrow">The board — veto anything you can't or won't stream</div>${board}`}
     </div>
 
     <div class="card urls">
