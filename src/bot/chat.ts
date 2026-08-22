@@ -137,6 +137,10 @@ async function handleMessage(
   switch (cmd) {
     case 'nominate':
     case 'nom': {
+      if (q.getOpenPoll(CHANNEL)) {
+        if (canErrorReply('closed')) say(`@${login} nominations are closed — voting is open, !vote <number>`);
+        return;
+      }
       if (!arg) return void say(`@${login} usage: !nominate <movie title>`);
 
       // Chat gets the same poster treatment as the site: take TMDB's best match.
@@ -172,6 +176,10 @@ async function handleMessage(
 
     case 'interest':
     case 'want': {
+      if (q.getOpenPoll(CHANNEL)) {
+        if (canErrorReply('closed')) say(`@${login} the board is frozen while voting is open`);
+        return;
+      }
       const id = Number(arg.replace('#', ''));
       if (!Number.isInteger(id)) return void say(`@${login} usage: !interest <id from !movies>`);
       try {

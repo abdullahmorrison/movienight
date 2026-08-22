@@ -355,6 +355,7 @@ header.top .btn { padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
 }
 .step.on .n { background: var(--accent); color: #fff; }
 .step.done .n { background: var(--surface-3); color: var(--text); }
+.step .now.shut { background: var(--surface-3); color: var(--muted); }
 
 /* ---------- tie ---------- */
 
@@ -505,3 +506,26 @@ code {
   .detail-art .heading { left: 20px; right: 20px; bottom: 18px; }
   .detail-body { padding: 6px 20px 24px; }
 }
+
+/* Made-by credit. Pinned to Twitch's purple rather than var(--accent): the red build
+   swaps that out, and here the mark and the colour are both saying "Twitch". #a970ff
+   rather than the #9146ff brand purple -- that measures 4.07:1 on this ground, under
+   the 4.5 minimum for text this size. */
+.madeby {
+  margin: 26px 0 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.madeby a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #a970ff;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: text-bottom;
+}
+.madeby a:hover { text-decoration: underline; }
+.madeby a:focus-visible { outline: 2px solid #a970ff; outline-offset: 2px; border-radius: 4px; }
+.madeby svg { width: 1em; height: 1em; flex: none; fill: currentColor; }

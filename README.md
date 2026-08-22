@@ -11,8 +11,10 @@ the same Twitch user id, so one person is one ballot either way.
 poster, a year, and a stable id — which keeps The Thing (1982) and The Thing
 (2011) apart. Adding interest ranks the shortlist. It is not the vote.
 
-**On stream** — the streamer opens a poll on the top N. One vote each; you can
-move it until the timer runs out. Most votes wins.
+**On stream** — the streamer opens a poll on the top N. The board freezes:
+nominations and interest are refused while a poll runs, so the shortlist cannot
+shift under people mid-vote. One vote each; you can move it until the timer runs
+out. Most votes wins.
 
 **If it draws** — nothing is decided. The tied movies stay on the board and the
 streamer either runs a tiebreaker between just those, or calls it themselves.

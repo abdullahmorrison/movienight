@@ -150,7 +150,8 @@ function render() {
       ${voting ? `
         <div class="eyebrow"><span class="dot live"></span> Voting open ·
           <span class="timer" id="t">${clock(state.poll.closesAt - Date.now())}</span></div>
-        <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.</p>
+        <p class="lede">${state.voters} ${state.voters === 1 ? 'person has' : 'people have'} voted so far.
+          Nominations are closed until this poll ends.</p>
         <button class="btn red big" id="close">End poll now</button>
       ` : state.tie.length > 1 ? `
         <div class="eyebrow"><span class="dot live"></span> Tied — nothing decided yet</div>

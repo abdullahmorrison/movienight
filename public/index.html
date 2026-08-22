@@ -26,6 +26,9 @@
 <div class="wrap">
   <main id="main"></main>
   <p class="muted pad" id="cmds"></p>
+  <p class="madeby pad">
+    Made by <a href="https://twitch.tv/abdullahmorrison"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>abdullahmorrison</a>
+  </p>
 </div>
 
 <div class="modal" id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="detail-title">
@@ -269,11 +272,15 @@ function steps() {
   return `
     <div class="steps">
       <div class="step ${voting ? 'done' : 'on'}">
-        <span class="n">1</span>
+        <span class="n">${voting ? '✓' : '1'}</span>
         <span class="txt">
-          <b>Nominate what you want${voting ? '' : '<span class="now">You are here</span>'}</b>
-          <small>Open all week. The ${state.rules.shortlistSize} most wanted become the
-            choices you vote on. <strong>This part is not the vote.</strong></small>
+          <b>Nominate what you want${voting
+            ? '<span class="now shut">Closed</span>'
+            : '<span class="now">You are here</span>'}</b>
+          <small>${voting
+            ? 'The board is locked while voting runs. Nominations reopen as soon as the poll ends.'
+            : `Open all week. The ${state.rules.shortlistSize} most wanted become the
+               choices you vote on. <strong>This part is not the vote.</strong>`}</small>
         </span>
       </div>
       <div class="step ${voting ? 'on' : ''}">

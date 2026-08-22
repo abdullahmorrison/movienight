@@ -291,5 +291,16 @@ const ep = poll.open(CH, 120);
 check('an empty poll is neither a win nor a tie', poll.close(CH)?.outcome, 'empty');
 void ep;
 
+console.log('\n— the board is frozen while voting —');
+
+// The guard itself lives in the HTTP and chat layers, which this script does
+// not exercise; what belongs here is the state they key off.
+poll.open(CH, 120);
+check('getOpenPoll reports the poll the guards check for', Boolean(q.getOpenPoll(CH)), true);
+poll.close(CH);
+check('nominations reopen once the poll ends', Boolean(q.getOpenPoll(CH)), false);
+const reopened = q.nominate(CH, movie('Predator', 106, 1987), u.c);
+check('and nominating works again', reopened.ok, true);
+
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

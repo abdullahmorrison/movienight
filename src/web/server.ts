@@ -17,6 +17,10 @@ const CHANNEL = config.channel.id;
 // none. Fill it in once per process rather than making anyone sign in again.
 const avatarTried = new Set<string>();
 
+// The board is frozen while a poll runs: letting it move under voters would
+// change what the shortlist meant halfway through.
+const NOMINATIONS_CLOSED = 'Nominations are closed while voting is open. They reopen when the poll ends.';
+
 function backfillAvatar(userId: string, login: string): void {
   if (avatarTried.has(userId)) return;
   avatarTried.add(userId);
@@ -70,6 +74,10 @@ export function createServer(): http.Server {
   });
 
   app.post('/api/nominate', requireUser, async (req, res) => {
+    if (q.getOpenPoll(CHANNEL)) {
+      res.status(409).json({ error: NOMINATIONS_CLOSED });
+      return;
+    }
     const body = req.body as { title?: unknown; tmdbId?: unknown };
     const tmdbId = Number(body.tmdbId);
 
@@ -119,6 +127,10 @@ export function createServer(): http.Server {
   });
 
   app.post('/api/interest/:id', requireUser, (req, res) => {
+    if (q.getOpenPoll(CHANNEL)) {
+      res.status(409).json({ error: NOMINATIONS_CLOSED });
+      return;
+    }
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: 'Bad id.' });
