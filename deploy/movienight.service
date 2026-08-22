@@ -1,0 +1,37 @@
+# Copy to /etc/systemd/system/movienight.service
+#
+# Assumes:
+#   - the repo is checked out at /srv/movienight
+#   - /srv/movienight/.env exists (dotenv reads it from WorkingDirectory)
+#   - node is a system-wide install, not nvm (a system user cannot read ~/.nvm)
+
+[Unit]
+Description=Movie Night
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=movienight
+Group=movienight
+WorkingDirectory=/srv/movienight
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+
+# The point of running it here rather than in a container: it cannot starve
+# anything else on the box, and it cannot write outside its own directory.
+MemoryMax=512M
+CPUQuota=50%
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/movienight
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

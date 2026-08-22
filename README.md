@@ -54,6 +54,9 @@ still runs, falling back to plain typed titles with no posters.
 **Chat** — nothing to set up. The app joins anonymously, reads `!vote`, and never
 posts. `BOT_ENABLED=false` turns it off entirely.
 
+**Production** — [deploy/DEPLOY.md](deploy/DEPLOY.md) runs it as a systemd
+service behind Tailscale Funnel.
+
 ## Pages
 
 | Path | Who | What |
