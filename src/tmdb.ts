@@ -4,12 +4,35 @@ export type Movie = {
   tmdbId: number;
   title: string;
   year: number | null;
+  releaseDate: string | null;
+  /** Only present on a details lookup: Released, Post Production, Planned, ... */
+  status: string | null;
   posterPath: string | null;
   backdropPath: string | null;
   trailerKey: string | null;
   overview: string;
   popularity: number;
 };
+
+/**
+ * A film nobody can watch yet has no business on the board: it would sit there
+ * winning interest and, if it won, leave the streamer with nothing to play.
+ *
+ * The date is the deciding fact — TMDB's status lags, and a film can read
+ * "Released" for a festival showing months before anyone else can see it, so an
+ * unreached date overrules a status that claims otherwise.
+ */
+export function isReleased(
+  releaseDate: string | null | undefined,
+  status?: string | null,
+  today = new Date().toISOString().slice(0, 10),
+): boolean {
+  if (!releaseDate) return false;
+  if (releaseDate > today) return false;
+  // Anything still in production is out regardless of an optimistic date.
+  if (status && status !== 'Released') return false;
+  return true;
+}
 
 export const enabled = (): boolean => Boolean(config.tmdb.apiKey);
 
@@ -40,6 +63,8 @@ function normalize(raw: Record<string, unknown>): Movie {
     tmdbId: Number(raw.id),
     title: String(raw.title ?? raw.original_title ?? 'Untitled'),
     year: date.length >= 4 ? Number(date.slice(0, 4)) : null,
+    releaseDate: date || null,
+    status: (raw.status as string | undefined) ?? null,
     posterPath: (raw.poster_path as string | null) ?? null,
     backdropPath: (raw.backdrop_path as string | null) ?? null,
     trailerKey: pickTrailer(raw),
@@ -72,7 +97,8 @@ export async function search(query: string): Promise<Movie[]> {
   const results = (body.results ?? [])
     .map(normalize)
     // A poster is the whole point here, and no-year entries are usually junk.
-    .filter((m) => m.posterPath && m.year)
+    // Unreleased films are dropped rather than shown and then refused.
+    .filter((m) => m.posterPath && m.year && isReleased(m.releaseDate))
     .sort((a, b) => b.popularity - a.popularity)
     .slice(0, 8);
 

@@ -18,6 +18,7 @@ for (const f of ['./smoke.db', './smoke.db-wal', './smoke.db-shm']) {
 }
 
 const { config } = await import('../src/config.js');
+const { isReleased } = await import('../src/tmdb.js');
 const q = await import('../src/db/queries.js');
 const poll = await import('../src/poll.js');
 
@@ -425,6 +426,19 @@ q.nominate(CH, movie('Ikiru', 3782, 1952), capUser);
 check('at the cap', q.nominate(CH, movie('Ran', 11712, 1985), capUser).ok, false);
 q.withdrawNomination(CH, first.ok ? first.id : -1, capUser);
 check('withdrawing frees a slot', q.nominate(CH, movie('Ran', 11712, 1985), capUser).ok, true);
+
+console.log('\n— unreleased films —');
+
+const TODAY = '2026-08-21';
+check('a film already out is fine', isReleased('1982-06-25', 'Released', TODAY), true);
+check('one out today is fine', isReleased(TODAY, 'Released', TODAY), true);
+check('a future date is not', isReleased('2026-12-16', null, TODAY), false);
+check('nor is a missing date', isReleased(null, 'Released', TODAY), false);
+check('nor an empty one', isReleased('', 'Released', TODAY), false);
+// A festival showing can make something read "Released" long before anyone can
+// watch it, so the date has the final say.
+check('a past date still loses to a production status', isReleased('2026-01-01', 'Post Production', TODAY), false);
+check('status is optional', isReleased('2020-05-05', undefined, TODAY), true);
 
 console.log(failures === 0 ? '\n🎉 all checks passed\n' : `\n💥 ${failures} check(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

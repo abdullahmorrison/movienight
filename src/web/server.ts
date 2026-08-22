@@ -100,6 +100,20 @@ export function createServer(): http.Server {
       // Re-fetch from TMDB rather than trusting the poster and title the
       // browser sent us.
       const found = await tmdb.byId(tmdbId).catch(() => null);
+      if (found && !tmdb.isReleased(found.releaseDate, found.status)) {
+        const when = found.releaseDate
+          ? `It is out on ${new Date(found.releaseDate + 'T00:00:00Z').toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              timeZone: 'UTC',
+            })}.`
+          : 'It has no release date yet.';
+        res.status(409).json({
+          error: `${found.title} is not out yet, so nobody could watch it. ${when}`,
+        });
+        return;
+      }
       if (found) {
         movie = {
           title: found.title,
