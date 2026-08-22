@@ -46,6 +46,20 @@
   .win { display: flex; gap: 16px; align-items: center; }
   .win img { width: 84px; border-radius: 4px; flex: none; }
   .win h2 { margin: 4px 0; font-size: 24px; font-weight: 900; letter-spacing: -.025em; }
+
+  /* First run: four glanceable rows. Nobody reads a paragraph on stream. */
+  .modal .sheet.howto { max-width: 460px; text-align: left; }
+  .modal .sheet.howto h3 { margin-bottom: 14px; }
+  .howto-steps { list-style: none; margin: 0 0 22px; padding: 0; }
+  .howto-steps li {
+    display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .howto-steps li:last-child { border-bottom: 0; }
+  .howto-steps .g { font-size: 19px; line-height: 1.3; }
+  .howto-steps b { display: block; font-size: 15px; }
+  .howto-steps small { color: var(--muted); font-size: 13px; }
+  .howto-steps small b { display: inline; color: var(--text); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -83,6 +97,23 @@
   </div>
 </div>
 
+<div class="modal" id="howto" hidden role="dialog" aria-modal="true" aria-labelledby="howto-title">
+  <div class="sheet howto">
+    <h3 id="howto-title">🍿 How this works</h3>
+    <ul class="howto-steps">
+      <li><span class="g">📋</span><span><b>All week</b>
+        <small>Chat nominates at your link</small></span></li>
+      <li><span class="g">▶️</span><span><b>On stream</b>
+        <small>Hit <b>Start voting</b> — top <span id="howto-n">5</span> go up</small></span></li>
+      <li><span class="g">💬</span><span><b>They vote</b>
+        <small>On the site, or <code>!vote 2</code> in chat</small></span></li>
+      <li><span class="g">🏆</span><span><b>Winner</b>
+        <small>Hit <b>Clear the result</b> to reopen nominations</small></span></li>
+    </ul>
+    <button class="btn cta" id="howto-close">Got it</button>
+  </div>
+</div>
+
 <script type="module">
 import { profileHtml, wireProfile } from '/profile.js';
 
@@ -90,9 +121,28 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 let state = null;
 let duration = null;   // seconds, kept across re-renders
+let howtoChecked = false;   // the first-run explainer is offered once per load
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const clock = (ms) => { const s = Math.max(0, Math.round(ms/1000)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+/** First-run explainer. Four rows, no paragraphs: it gets read on stream or not at all. */
+function openHowto() {
+  const box = $('#howto');
+  const close = () => {
+    box.hidden = true;
+    document.removeEventListener('keydown', onKey);
+    try { localStorage.setItem('mn_howto_seen', '1'); } catch (e) { /* private browsing: it comes back */ }
+  };
+  const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
+
+  $('#howto-close').onclick = close;
+  box.onclick = (e) => { if (e.target.id === 'howto') close(); };
+  document.addEventListener('keydown', onKey);
+
+  box.hidden = false;
+  $('#howto-close').focus();
+}
 
 /** Styled stand-in for window.confirm. Resolves true when the action is approved. */
 function confirmAction({ glyph = '🚫', title, body, verb, danger = true }) {
@@ -192,7 +242,8 @@ const thumb = (m) => m.poster
 function render() {
   $('#chan').textContent = state.channel ? `#${state.channel}` : '';
   $('#auth').innerHTML = state.me
-    ? `<a class="btn" href="/">Vote page</a>
+    ? `${state.me.canControl ? '<button class="btn grey" id="howto-open">How it works</button>' : ''}
+       <a class="btn" href="/">Vote page</a>
        ${profileHtml(state.me)}`
     : `<a class="btn cta" href="/auth/login"><svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg> Sign in with Twitch</a>`;
 
@@ -200,6 +251,17 @@ function render() {
 
   if (!state.me) { $('#main').innerHTML = '<div class="card empty">Sign in with the streamer account.</div>'; return; }
   if (!state.me.canControl) { $('#main').innerHTML = '<div class="card empty">Streamer only.</div>'; return; }
+
+  $('#howto-n').textContent = state.rules.shortlistSize;
+  $('#howto-open').onclick = openHowto;
+
+  // Once per browser, on the first controls page they ever load.
+  if (!howtoChecked) {
+    howtoChecked = true;
+    let seen = false;
+    try { seen = localStorage.getItem('mn_howto_seen') === '1'; } catch (e) { /* private browsing */ }
+    if (!seen) openHowto();
+  }
 
   const voting = state.phase === 'voting';
   const shortlist = state.nominations.slice(0, state.rules.shortlistSize);
