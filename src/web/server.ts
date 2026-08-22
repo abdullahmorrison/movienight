@@ -23,8 +23,8 @@ const NOMINATIONS_CLOSED = 'Nominations are closed while voting is open. They re
 
 // The ballot is fixed when a poll opens, so a veto part-way through would not
 // take the movie off it — people could still vote for it and it could still
-// win. End the poll first.
-const VETO_CLOSED = 'End the poll before vetoing — the ballot is already fixed.';
+// win. Close voting first.
+const VETO_CLOSED = 'Close voting before vetoing — the ballot is already fixed.';
 
 function backfillAvatar(userId: string, login: string): void {
   if (avatarTried.has(userId)) return;
