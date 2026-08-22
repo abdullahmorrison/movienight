@@ -56,6 +56,8 @@ export async function lookupUserId(login: string): Promise<string | null> {
  * still has them.
  */
 export async function resolveAdminIds(): Promise<void> {
+  const named: string[] = [];
+
   for (const login of config.admins.logins) {
     try {
       const id = await lookupUserId(login);
@@ -64,10 +66,19 @@ export async function resolveAdminIds(): Promise<void> {
         continue;
       }
       if (!config.admins.ids.includes(id)) config.admins.ids.push(id);
+      named.push(`${login} (${id})`);
     } catch (err) {
       console.warn(`[twitch] ADMIN_LOGINS: could not resolve ${login}: ${(err as Error).message}`);
     }
   }
+
+  // Said out loud at boot: losing the controls page because ADMIN_LOGINS was
+  // never set is otherwise only discoverable by signing in and finding it gone.
+  console.log(
+    named.length
+      ? `[twitch] controls also granted to ${named.join(', ')}`
+      : '[twitch] no ADMIN_LOGINS — only the broadcaster gets the controls',
+  );
 }
 
 /**
